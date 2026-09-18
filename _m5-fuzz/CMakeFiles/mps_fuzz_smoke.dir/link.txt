@@ -1,0 +1,1 @@
+/usr/bin/clang++ -O2 -g -DNDEBUG -Xlinker --dependency-file=CMakeFiles/mps_fuzz_smoke.dir/link.d CMakeFiles/mps_fuzz_smoke.dir/tests/fuzz/mps_fuzz_smoke.cpp.o -o mps_fuzz_smoke  libsihopt_core.a

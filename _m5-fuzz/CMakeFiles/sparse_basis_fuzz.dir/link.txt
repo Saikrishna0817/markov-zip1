@@ -1,0 +1,1 @@
+/usr/bin/clang++ -O2 -g -DNDEBUG -fsanitize=fuzzer,address,undefined -Xlinker --dependency-file=CMakeFiles/sparse_basis_fuzz.dir/link.d CMakeFiles/sparse_basis_fuzz.dir/tests/fuzz/sparse_basis_fuzz.cpp.o -o sparse_basis_fuzz  libsihopt_core.a

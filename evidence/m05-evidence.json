@@ -1,0 +1,19 @@
+{
+  "schema_version": "1.0.0",
+  "milestone": "M5",
+  "version": "0.5.0-rc1",
+  "status": "provisional_blocked",
+  "commit": "69fdee4a423227e1647646a451db324044e69b1c",
+  "archive_sha256": "not issued; final gate blocked",
+  "notes": [
+    "Sparse CSC, deterministic partial-pivot sparse LU, FTRAN, BTRAN, reach-restricted triangular solves, bounded eta updates, and refactorization triggers are implemented.",
+    "The M4 dual warm path uses the M5 sparse basis substrate; M3 cold fallback and final-result verification remain intact.",
+    "Two hundred fifty direct random sparse factorization cases and 2,400 accepted multi-update sequences passed dense-oracle comparisons.",
+    "Cumulative local GCC warnings-as-errors and GCC ASan/UBSan checks passed.",
+    "CMake, CTest, Clang, Clang libFuzzer, and independent review are blocked by this runtime and must complete before final acceptance."
+  ],
+  "review": {
+    "mathematical": "BLOCKED: isolated reviewer could not access repository",
+    "source_security_release": "BLOCKED: isolated reviewer could not access repository"
+  }
+}

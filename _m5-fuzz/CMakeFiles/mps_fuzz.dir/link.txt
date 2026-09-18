@@ -1,0 +1,1 @@
+/usr/bin/clang++ -O2 -g -DNDEBUG -fsanitize=fuzzer,address,undefined -Xlinker --dependency-file=CMakeFiles/mps_fuzz.dir/link.d CMakeFiles/mps_fuzz.dir/tests/fuzz/mps_fuzz.cpp.o -o mps_fuzz  libsihopt_core.a

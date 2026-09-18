@@ -1,0 +1,1 @@
+/usr/bin/g++ -D_GLIBCXX_DEBUG -D_GLIBCXX_ASSERTIONS -g -Wl,--dependency-file=CMakeFiles/m1_edge_test.dir/link.d CMakeFiles/m1_edge_test.dir/tests/m1_edge_test.cpp.o -o m1_edge_test  libsihopt_core.a

@@ -1,0 +1,10 @@
+SIHOpt cumulative M3 ASan/UBSan audit report
+UTC: 2026-09-13T13:50:13Z
+Compiler: g++ (GCC) 11.5.0 20240719 (Red Hat 11.5.0-5)
+Command: cumulative safety smoke
+M1 tests passed
+deterministic MPS fuzz smoke passed
+M3 reference simplex tests passed
+M3 randomized differential tests passed
+Cumulative M3 ASan/UBSan and deterministic fuzz smoke passed
+Exit status: 0

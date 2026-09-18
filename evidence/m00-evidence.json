@@ -1,0 +1,13 @@
+{
+  "schema_version": "1.0.0",
+  "milestone": "M0",
+  "version": "0.0.1",
+  "status": "blocked",
+  "commit": "09a35701199c2efbd3a8595ab6522940a2bb38c6",
+  "archive_sha256": "",
+  "notes": [
+    "M0 integrity, JSON, no-solver guard, and GCC direct-build tests passed in sandbox.",
+    "CMake/CTest and Clang were unavailable in sandbox and are blocked, not claimed passed.",
+    "Final acceptance is blocked on independent mathematical and security/release review."
+  ]
+}

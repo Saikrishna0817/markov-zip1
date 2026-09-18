@@ -1,0 +1,17 @@
+SIHOpt M0 local verification
+UTC: 2026-09-13T08:15:09Z
++ python3 scripts/check-manifest.py /vercel/sandbox/data/sihopt
+source manifest passed
++ python3 scripts/validate_records.py /vercel/sandbox/data/sihopt
+JSON syntax and required-file checks passed
++ python3 scripts/no_solver_guard.py /vercel/sandbox/data/sihopt
+M0 no-solver guard passed
+BLOCKED: cmake/ctest not available; using direct compiler smoke fallback
++ g++ -std=c++20 -Wall -Wextra -Wpedantic -Werror -Iinclude -c src/foundation/build_info.cpp -o /vercel/sandbox/data/sihopt/_verify-gcc/build_info.o
++ g++ -std=c++20 -Wall -Wextra -Wpedantic -Werror -Iinclude tests/foundation_test.cpp /vercel/sandbox/data/sihopt/_verify-gcc/build_info.o -o /vercel/sandbox/data/sihopt/_verify-gcc/foundation_test
++ /vercel/sandbox/data/sihopt/_verify-gcc/foundation_test
++ g++ -std=c++20 -Wall -Wextra -Wpedantic -Werror -Iinclude apps/sihopt_info.cpp /vercel/sandbox/data/sihopt/_verify-gcc/build_info.o -o /vercel/sandbox/data/sihopt/_verify-gcc/sihopt-info
++ /vercel/sandbox/data/sihopt/_verify-gcc/sihopt-info
+SIHOpt 0.0.1 milestone M0 (foundation only; no solver)
+BLOCKED: clang++ not available
+PASS WITH BLOCKERS: integrity and available-toolchain checks completed

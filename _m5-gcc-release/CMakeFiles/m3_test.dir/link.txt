@@ -1,0 +1,1 @@
+/usr/bin/g++ -O3 -DNDEBUG -Wl,--dependency-file=CMakeFiles/m3_test.dir/link.d CMakeFiles/m3_test.dir/tests/m3_test.cpp.o -o m3_test  libsihopt_core.a

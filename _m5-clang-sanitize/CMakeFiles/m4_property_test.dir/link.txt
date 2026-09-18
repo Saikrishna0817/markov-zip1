@@ -1,0 +1,1 @@
+/usr/bin/clang++ -g -fsanitize=address,undefined -Xlinker --dependency-file=CMakeFiles/m4_property_test.dir/link.d CMakeFiles/m4_property_test.dir/tests/m4_property_test.cpp.o -o m4_property_test  libsihopt_core.a

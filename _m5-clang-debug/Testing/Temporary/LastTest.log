@@ -1,0 +1,238 @@
+Start testing: Sep 19 00:28 IST
+----------------------------------------------------------
+1/15 Testing: foundation_contract
+1/15 Test: foundation_contract
+Command: "/home/saikrishna/markov-initial-build/_m5-clang-debug/foundation_test"
+Directory: /home/saikrishna/markov-initial-build/_m5-clang-debug
+"foundation_contract" start time: Sep 19 00:28 IST
+Output:
+----------------------------------------------------------
+<end of output>
+Test time =   0.00 sec
+----------------------------------------------------------
+Test Passed.
+"foundation_contract" end time: Sep 19 00:28 IST
+"foundation_contract" time elapsed: 00:00:00
+----------------------------------------------------------
+
+2/15 Testing: m1_model_parser_verifier
+2/15 Test: m1_model_parser_verifier
+Command: "/home/saikrishna/markov-initial-build/_m5-clang-debug/m1_test"
+Directory: /home/saikrishna/markov-initial-build/_m5-clang-debug
+"m1_model_parser_verifier" start time: Sep 19 00:28 IST
+Output:
+----------------------------------------------------------
+M1 tests passed
+<end of output>
+Test time =   0.00 sec
+----------------------------------------------------------
+Test Passed.
+"m1_model_parser_verifier" end time: Sep 19 00:28 IST
+"m1_model_parser_verifier" time elapsed: 00:00:00
+----------------------------------------------------------
+
+3/15 Testing: m1_edge_cases
+3/15 Test: m1_edge_cases
+Command: "/home/saikrishna/markov-initial-build/_m5-clang-debug/m1_edge_test"
+Directory: /home/saikrishna/markov-initial-build/_m5-clang-debug
+"m1_edge_cases" start time: Sep 19 00:28 IST
+Output:
+----------------------------------------------------------
+<end of output>
+Test time =   0.01 sec
+----------------------------------------------------------
+Test Passed.
+"m1_edge_cases" end time: Sep 19 00:28 IST
+"m1_edge_cases" time elapsed: 00:00:00
+----------------------------------------------------------
+
+4/15 Testing: m1_fuzz_smoke
+4/15 Test: m1_fuzz_smoke
+Command: "/home/saikrishna/markov-initial-build/_m5-clang-debug/mps_fuzz_smoke"
+Directory: /home/saikrishna/markov-initial-build/_m5-clang-debug
+"m1_fuzz_smoke" start time: Sep 19 00:28 IST
+Output:
+----------------------------------------------------------
+deterministic MPS fuzz smoke passed
+<end of output>
+Test time =   0.15 sec
+----------------------------------------------------------
+Test Passed.
+"m1_fuzz_smoke" end time: Sep 19 00:28 IST
+"m1_fuzz_smoke" time elapsed: 00:00:00
+----------------------------------------------------------
+
+5/15 Testing: m1_randomized_properties
+5/15 Test: m1_randomized_properties
+Command: "/home/saikrishna/markov-initial-build/_m5-clang-debug/m1_property_test"
+Directory: /home/saikrishna/markov-initial-build/_m5-clang-debug
+"m1_randomized_properties" start time: Sep 19 00:28 IST
+Output:
+----------------------------------------------------------
+<end of output>
+Test time =   0.01 sec
+----------------------------------------------------------
+Test Passed.
+"m1_randomized_properties" end time: Sep 19 00:28 IST
+"m1_randomized_properties" time elapsed: 00:00:00
+----------------------------------------------------------
+
+6/15 Testing: m2_dense_lu_canonicalization
+6/15 Test: m2_dense_lu_canonicalization
+Command: "/home/saikrishna/markov-initial-build/_m5-clang-debug/m2_test"
+Directory: /home/saikrishna/markov-initial-build/_m5-clang-debug
+"m2_dense_lu_canonicalization" start time: Sep 19 00:28 IST
+Output:
+----------------------------------------------------------
+<end of output>
+Test time =   0.00 sec
+----------------------------------------------------------
+Test Passed.
+"m2_dense_lu_canonicalization" end time: Sep 19 00:28 IST
+"m2_dense_lu_canonicalization" time elapsed: 00:00:00
+----------------------------------------------------------
+
+7/15 Testing: m3_reference_primal_simplex
+7/15 Test: m3_reference_primal_simplex
+Command: "/home/saikrishna/markov-initial-build/_m5-clang-debug/m3_test"
+Directory: /home/saikrishna/markov-initial-build/_m5-clang-debug
+"m3_reference_primal_simplex" start time: Sep 19 00:28 IST
+Output:
+----------------------------------------------------------
+M3 reference simplex tests passed
+<end of output>
+Test time =   0.47 sec
+----------------------------------------------------------
+Test Passed.
+"m3_reference_primal_simplex" end time: Sep 19 00:28 IST
+"m3_reference_primal_simplex" time elapsed: 00:00:00
+----------------------------------------------------------
+
+8/15 Testing: m3_randomized_differential
+8/15 Test: m3_randomized_differential
+Command: "/home/saikrishna/markov-initial-build/_m5-clang-debug/m3_property_test"
+Directory: /home/saikrishna/markov-initial-build/_m5-clang-debug
+"m3_randomized_differential" start time: Sep 19 00:28 IST
+Output:
+----------------------------------------------------------
+M3 randomized differential tests passed
+<end of output>
+Test time =   0.03 sec
+----------------------------------------------------------
+Test Passed.
+"m3_randomized_differential" end time: Sep 19 00:28 IST
+"m3_randomized_differential" time elapsed: 00:00:00
+----------------------------------------------------------
+
+9/15 Testing: m4_dual_simplex
+9/15 Test: m4_dual_simplex
+Command: "/home/saikrishna/markov-initial-build/_m5-clang-debug/m4_test"
+Directory: /home/saikrishna/markov-initial-build/_m5-clang-debug
+"m4_dual_simplex" start time: Sep 19 00:28 IST
+Output:
+----------------------------------------------------------
+M4 dual simplex tests passed
+<end of output>
+Test time =   0.00 sec
+----------------------------------------------------------
+Test Passed.
+"m4_dual_simplex" end time: Sep 19 00:28 IST
+"m4_dual_simplex" time elapsed: 00:00:00
+----------------------------------------------------------
+
+10/15 Testing: m4_randomized_warm_starts
+10/15 Test: m4_randomized_warm_starts
+Command: "/home/saikrishna/markov-initial-build/_m5-clang-debug/m4_property_test"
+Directory: /home/saikrishna/markov-initial-build/_m5-clang-debug
+"m4_randomized_warm_starts" start time: Sep 19 00:28 IST
+Output:
+----------------------------------------------------------
+M4 randomized warm-start tests passed
+<end of output>
+Test time =   0.11 sec
+----------------------------------------------------------
+Test Passed.
+"m4_randomized_warm_starts" end time: Sep 19 00:28 IST
+"m4_randomized_warm_starts" time elapsed: 00:00:00
+----------------------------------------------------------
+
+11/15 Testing: m5_sparse_basis
+11/15 Test: m5_sparse_basis
+Command: "/home/saikrishna/markov-initial-build/_m5-clang-debug/m5_test"
+Directory: /home/saikrishna/markov-initial-build/_m5-clang-debug
+"m5_sparse_basis" start time: Sep 19 00:28 IST
+Output:
+----------------------------------------------------------
+M5 sparse basis tests passed
+<end of output>
+Test time =   0.06 sec
+----------------------------------------------------------
+Test Passed.
+"m5_sparse_basis" end time: Sep 19 00:28 IST
+"m5_sparse_basis" time elapsed: 00:00:00
+----------------------------------------------------------
+
+12/15 Testing: m5_sparse_update_properties
+12/15 Test: m5_sparse_update_properties
+Command: "/home/saikrishna/markov-initial-build/_m5-clang-debug/m5_property_test"
+Directory: /home/saikrishna/markov-initial-build/_m5-clang-debug
+"m5_sparse_update_properties" start time: Sep 19 00:28 IST
+Output:
+----------------------------------------------------------
+M5 randomized sparse/update properties passed: 2400 updates
+<end of output>
+Test time =   0.71 sec
+----------------------------------------------------------
+Test Passed.
+"m5_sparse_update_properties" end time: Sep 19 00:28 IST
+"m5_sparse_update_properties" time elapsed: 00:00:00
+----------------------------------------------------------
+
+13/15 Testing: m5_audit_regressions
+13/15 Test: m5_audit_regressions
+Command: "/home/saikrishna/markov-initial-build/_m5-clang-debug/m5_audit_regression_test"
+Directory: /home/saikrishna/markov-initial-build/_m5-clang-debug
+"m5_audit_regressions" start time: Sep 19 00:28 IST
+Output:
+----------------------------------------------------------
+<end of output>
+Test time =   0.00 sec
+----------------------------------------------------------
+Test Passed.
+"m5_audit_regressions" end time: Sep 19 00:28 IST
+"m5_audit_regressions" time elapsed: 00:00:00
+----------------------------------------------------------
+
+14/15 Testing: json_records
+14/15 Test: json_records
+Command: "/usr/bin/cmake" "-E" "env" "python3" "/home/saikrishna/markov-initial-build/scripts/validate_records.py" "/home/saikrishna/markov-initial-build"
+Directory: /home/saikrishna/markov-initial-build/_m5-clang-debug
+"json_records" start time: Sep 19 00:28 IST
+Output:
+----------------------------------------------------------
+JSON schema structure, record semantics, and required-file checks passed
+<end of output>
+Test time =   0.05 sec
+----------------------------------------------------------
+Test Passed.
+"json_records" end time: Sep 19 00:28 IST
+"json_records" time elapsed: 00:00:00
+----------------------------------------------------------
+
+15/15 Testing: no_future_solver_guard
+15/15 Test: no_future_solver_guard
+Command: "/usr/bin/cmake" "-E" "env" "python3" "/home/saikrishna/markov-initial-build/scripts/no_solver_guard.py" "/home/saikrishna/markov-initial-build"
+Directory: /home/saikrishna/markov-initial-build/_m5-clang-debug
+"no_future_solver_guard" start time: Sep 19 00:28 IST
+Output:
+----------------------------------------------------------
+M4 scope guard passed
+<end of output>
+Test time =   0.05 sec
+----------------------------------------------------------
+Test Passed.
+"no_future_solver_guard" end time: Sep 19 00:28 IST
+"no_future_solver_guard" time elapsed: 00:00:00
+----------------------------------------------------------
+
+End testing: Sep 19 00:28 IST

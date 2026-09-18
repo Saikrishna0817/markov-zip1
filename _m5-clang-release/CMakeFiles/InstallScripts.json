@@ -1,0 +1,7 @@
+{
+	"InstallScripts" : 
+	[
+		"/home/saikrishna/markov-initial-build/_m5-clang-release/cmake_install.cmake"
+	],
+	"Parallel" : false
+}

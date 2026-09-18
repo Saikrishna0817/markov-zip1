@@ -1,0 +1,3 @@
+M1 tests passed
+deterministic MPS fuzz smoke passed
+M1 ASan/UBSan and deterministic fuzz smoke passed

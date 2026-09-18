@@ -1,0 +1,1 @@
+/usr/bin/clang++ -g -Xlinker --dependency-file=CMakeFiles/sihopt-mps-inspect.dir/link.d "CMakeFiles/sihopt-mps-inspect.dir/apps/sihopt_mps_inspect.cpp.o" -o sihopt-mps-inspect  libsihopt_core.a

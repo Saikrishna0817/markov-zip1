@@ -1,0 +1,5 @@
+SIHOpt M3 GCC static analyzer report
+UTC: 2026-09-13T13:50:05Z
+Compiler: g++ (GCC) 11.5.0 20240719 (Red Hat 11.5.0-5)
+Policy: libstdc++ allocator null-return diagnostics suppressed because throwing operator new does not return null.
+Exit status: 0; no unsuppressed analyzer diagnostics.

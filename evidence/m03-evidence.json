@@ -1,0 +1,19 @@
+{
+  "schema_version": "1.0.0",
+  "milestone": "M3",
+  "version": "0.3.0",
+  "status": "candidate_deferred_deployment",
+  "commit": "f6ed77af1e08f0b38e6b51c90946ca515b39310a",
+  "archive_sha256": "see external release attestation",
+  "notes": [
+    "Dense reference primal revised simplex with Phase I and Phase II implemented.",
+    "Optimal, infeasible, and unbounded payloads are checked by an independent verifier.",
+    "Bland anti-cycling, degeneracy, cycling, redundant rows, empty systems, and iteration limits tested.",
+    "Two hundred deterministic randomized tiny LPs agree with exact basis enumeration.",
+    "Cumulative GCC warnings-as-errors, GCC static analyzer, and ASan/UBSan checks passed.",
+    "CMake/Clang deployment matrix deferred to M5 by user approval.",
+    "Independent-review close-ratio overshoot corrected with strict-minimum ratio selection.",
+    "Ratio overflow, excessive tolerance, telemetry growth, expanded workspace, and weak-ray checks now fail closed.",
+    "M3 documentation manifest includes solver, verifier, analytic tests, and property tests."
+  ]
+}

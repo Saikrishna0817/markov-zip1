@@ -1,0 +1,4 @@
+SIHOpt — SIH26119 Indigenous GPU-Accelerated Optimization Solver
+Copyright 2026 SIHOpt contributors
+
+This M0 archive contains governance, specification, build-foundation, and verification infrastructure only. It contains no solver algorithm and makes no solver-capability claim.

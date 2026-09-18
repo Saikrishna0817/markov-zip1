@@ -1,0 +1,16 @@
+foundation_contract 1 0.0141897
+m1_model_parser_verifier 1 0.0300585
+m1_edge_cases 1 0.0196489
+m1_fuzz_smoke 1 0.37457
+m1_randomized_properties 1 0.0528066
+m2_dense_lu_canonicalization 1 0.0277104
+m3_reference_primal_simplex 1 1.76319
+m3_randomized_differential 1 0.107635
+m4_dual_simplex 1 0.0191631
+m4_randomized_warm_starts 1 0.516855
+m5_sparse_basis 1 0.176167
+m5_sparse_update_properties 1 2.64609
+m5_audit_regressions 1 0.0260978
+json_records 1 0.0719975
+no_future_solver_guard 1 0.0692469
+---

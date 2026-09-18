@@ -1,0 +1,42 @@
+SIHOpt cumulative M3 local verification
+UTC: 2026-09-13T13:48:42Z
++ python3 scripts/check-manifest.py /vercel/sandbox/data/sihopt
+source manifest passed
++ python3 scripts/validate_records.py /vercel/sandbox/data/sihopt
+JSON schema structure, record semantics, and required-file checks passed
++ python3 scripts/no_solver_guard.py /vercel/sandbox/data/sihopt
+M3 scope guard guard passed
+BLOCKED: cmake/ctest not available; using direct compiler smoke fallback
++ g++ -std=c++20 -Wall -Wextra -Wpedantic -Werror -Iinclude -c src/foundation/build_info.cpp -o /vercel/sandbox/data/sihopt/_verify-gcc/build_info.o
++ g++ -std=c++20 -Wall -Wextra -Wpedantic -Werror -Iinclude -c src/model/model.cpp -o /vercel/sandbox/data/sihopt/_verify-gcc/model.o
++ g++ -std=c++20 -Wall -Wextra -Wpedantic -Werror -Iinclude -c src/io/mps.cpp -o /vercel/sandbox/data/sihopt/_verify-gcc/mps.o
++ g++ -std=c++20 -Wall -Wextra -Wpedantic -Werror -Iinclude -c src/verify/primal_verifier.cpp -o /vercel/sandbox/data/sihopt/_verify-gcc/primal_verifier.o
++ g++ -std=c++20 -Wall -Wextra -Wpedantic -Werror -Iinclude -c src/linalg/dense_lu.cpp -o /vercel/sandbox/data/sihopt/_verify-gcc/dense_lu.o
++ g++ -std=c++20 -Wall -Wextra -Wpedantic -Werror -Iinclude -c src/transform/canonicalize.cpp -o /vercel/sandbox/data/sihopt/_verify-gcc/canonicalize.o
++ g++ -std=c++20 -Wall -Wextra -Wpedantic -Werror -Iinclude -c src/lp/reference/revised_simplex.cpp -o /vercel/sandbox/data/sihopt/_verify-gcc/revised_simplex.o
++ g++ -std=c++20 -Wall -Wextra -Wpedantic -Werror -Iinclude -c src/verify/reference_lp_verifier.cpp -o /vercel/sandbox/data/sihopt/_verify-gcc/reference_lp_verifier.o
++ g++ -std=c++20 -Wall -Wextra -Wpedantic -Werror -Iinclude tests/foundation_test.cpp /vercel/sandbox/data/sihopt/_verify-gcc/build_info.o /vercel/sandbox/data/sihopt/_verify-gcc/model.o /vercel/sandbox/data/sihopt/_verify-gcc/mps.o /vercel/sandbox/data/sihopt/_verify-gcc/primal_verifier.o /vercel/sandbox/data/sihopt/_verify-gcc/dense_lu.o /vercel/sandbox/data/sihopt/_verify-gcc/canonicalize.o /vercel/sandbox/data/sihopt/_verify-gcc/revised_simplex.o /vercel/sandbox/data/sihopt/_verify-gcc/reference_lp_verifier.o -o /vercel/sandbox/data/sihopt/_verify-gcc/foundation_test
++ /vercel/sandbox/data/sihopt/_verify-gcc/foundation_test
++ g++ -std=c++20 -Wall -Wextra -Wpedantic -Werror -Iinclude tests/m1_test.cpp /vercel/sandbox/data/sihopt/_verify-gcc/build_info.o /vercel/sandbox/data/sihopt/_verify-gcc/model.o /vercel/sandbox/data/sihopt/_verify-gcc/mps.o /vercel/sandbox/data/sihopt/_verify-gcc/primal_verifier.o /vercel/sandbox/data/sihopt/_verify-gcc/dense_lu.o /vercel/sandbox/data/sihopt/_verify-gcc/canonicalize.o /vercel/sandbox/data/sihopt/_verify-gcc/revised_simplex.o /vercel/sandbox/data/sihopt/_verify-gcc/reference_lp_verifier.o -o /vercel/sandbox/data/sihopt/_verify-gcc/m1_test
++ /vercel/sandbox/data/sihopt/_verify-gcc/m1_test
+M1 tests passed
++ g++ -std=c++20 -Wall -Wextra -Wpedantic -Werror -Iinclude tests/m1_edge_test.cpp /vercel/sandbox/data/sihopt/_verify-gcc/build_info.o /vercel/sandbox/data/sihopt/_verify-gcc/model.o /vercel/sandbox/data/sihopt/_verify-gcc/mps.o /vercel/sandbox/data/sihopt/_verify-gcc/primal_verifier.o /vercel/sandbox/data/sihopt/_verify-gcc/dense_lu.o /vercel/sandbox/data/sihopt/_verify-gcc/canonicalize.o /vercel/sandbox/data/sihopt/_verify-gcc/revised_simplex.o /vercel/sandbox/data/sihopt/_verify-gcc/reference_lp_verifier.o -o /vercel/sandbox/data/sihopt/_verify-gcc/m1_edge_test
++ /vercel/sandbox/data/sihopt/_verify-gcc/m1_edge_test
++ g++ -std=c++20 -Wall -Wextra -Wpedantic -Werror -Iinclude tests/fuzz/mps_fuzz_smoke.cpp /vercel/sandbox/data/sihopt/_verify-gcc/build_info.o /vercel/sandbox/data/sihopt/_verify-gcc/model.o /vercel/sandbox/data/sihopt/_verify-gcc/mps.o /vercel/sandbox/data/sihopt/_verify-gcc/primal_verifier.o /vercel/sandbox/data/sihopt/_verify-gcc/dense_lu.o /vercel/sandbox/data/sihopt/_verify-gcc/canonicalize.o /vercel/sandbox/data/sihopt/_verify-gcc/revised_simplex.o /vercel/sandbox/data/sihopt/_verify-gcc/reference_lp_verifier.o -o /vercel/sandbox/data/sihopt/_verify-gcc/mps_fuzz_smoke
++ /vercel/sandbox/data/sihopt/_verify-gcc/mps_fuzz_smoke
+deterministic MPS fuzz smoke passed
++ g++ -std=c++20 -Wall -Wextra -Wpedantic -Werror -Iinclude tests/m1_property_test.cpp /vercel/sandbox/data/sihopt/_verify-gcc/build_info.o /vercel/sandbox/data/sihopt/_verify-gcc/model.o /vercel/sandbox/data/sihopt/_verify-gcc/mps.o /vercel/sandbox/data/sihopt/_verify-gcc/primal_verifier.o /vercel/sandbox/data/sihopt/_verify-gcc/dense_lu.o /vercel/sandbox/data/sihopt/_verify-gcc/canonicalize.o /vercel/sandbox/data/sihopt/_verify-gcc/revised_simplex.o /vercel/sandbox/data/sihopt/_verify-gcc/reference_lp_verifier.o -o /vercel/sandbox/data/sihopt/_verify-gcc/m1_property_test
++ /vercel/sandbox/data/sihopt/_verify-gcc/m1_property_test
++ g++ -std=c++20 -Wall -Wextra -Wpedantic -Werror -Iinclude tests/m2_test.cpp /vercel/sandbox/data/sihopt/_verify-gcc/build_info.o /vercel/sandbox/data/sihopt/_verify-gcc/model.o /vercel/sandbox/data/sihopt/_verify-gcc/mps.o /vercel/sandbox/data/sihopt/_verify-gcc/primal_verifier.o /vercel/sandbox/data/sihopt/_verify-gcc/dense_lu.o /vercel/sandbox/data/sihopt/_verify-gcc/canonicalize.o /vercel/sandbox/data/sihopt/_verify-gcc/revised_simplex.o /vercel/sandbox/data/sihopt/_verify-gcc/reference_lp_verifier.o -o /vercel/sandbox/data/sihopt/_verify-gcc/m2_test
++ /vercel/sandbox/data/sihopt/_verify-gcc/m2_test
++ g++ -std=c++20 -Wall -Wextra -Wpedantic -Werror -Iinclude tests/m3_test.cpp /vercel/sandbox/data/sihopt/_verify-gcc/build_info.o /vercel/sandbox/data/sihopt/_verify-gcc/model.o /vercel/sandbox/data/sihopt/_verify-gcc/mps.o /vercel/sandbox/data/sihopt/_verify-gcc/primal_verifier.o /vercel/sandbox/data/sihopt/_verify-gcc/dense_lu.o /vercel/sandbox/data/sihopt/_verify-gcc/canonicalize.o /vercel/sandbox/data/sihopt/_verify-gcc/revised_simplex.o /vercel/sandbox/data/sihopt/_verify-gcc/reference_lp_verifier.o -o /vercel/sandbox/data/sihopt/_verify-gcc/m3_test
++ /vercel/sandbox/data/sihopt/_verify-gcc/m3_test
+M3 reference simplex tests passed
++ g++ -std=c++20 -Wall -Wextra -Wpedantic -Werror -Iinclude tests/m3_property_test.cpp /vercel/sandbox/data/sihopt/_verify-gcc/build_info.o /vercel/sandbox/data/sihopt/_verify-gcc/model.o /vercel/sandbox/data/sihopt/_verify-gcc/mps.o /vercel/sandbox/data/sihopt/_verify-gcc/primal_verifier.o /vercel/sandbox/data/sihopt/_verify-gcc/dense_lu.o /vercel/sandbox/data/sihopt/_verify-gcc/canonicalize.o /vercel/sandbox/data/sihopt/_verify-gcc/revised_simplex.o /vercel/sandbox/data/sihopt/_verify-gcc/reference_lp_verifier.o -o /vercel/sandbox/data/sihopt/_verify-gcc/m3_property_test
++ /vercel/sandbox/data/sihopt/_verify-gcc/m3_property_test
+M3 randomized differential tests passed
++ g++ -std=c++20 -Wall -Wextra -Wpedantic -Werror -Iinclude apps/sihopt_mps_inspect.cpp /vercel/sandbox/data/sihopt/_verify-gcc/build_info.o /vercel/sandbox/data/sihopt/_verify-gcc/model.o /vercel/sandbox/data/sihopt/_verify-gcc/mps.o /vercel/sandbox/data/sihopt/_verify-gcc/primal_verifier.o /vercel/sandbox/data/sihopt/_verify-gcc/dense_lu.o /vercel/sandbox/data/sihopt/_verify-gcc/canonicalize.o /vercel/sandbox/data/sihopt/_verify-gcc/revised_simplex.o /vercel/sandbox/data/sihopt/_verify-gcc/reference_lp_verifier.o -o /vercel/sandbox/data/sihopt/_verify-gcc/sihopt-mps-inspect
++ /vercel/sandbox/data/sihopt/_verify-gcc/sihopt-mps-inspect examples/blend.mps
+{"name":"BLEND","sense":"minimize","rows":2,"columns":2,"nonzeros":4}
+BLOCKED: clang++ not available
+PASS WITH BLOCKERS: integrity and available-toolchain checks completed

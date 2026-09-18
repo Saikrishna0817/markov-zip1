@@ -1,0 +1,36 @@
+# CMake generated Testfile for 
+# Source directory: /home/saikrishna/markov-initial-build
+# Build directory: /home/saikrishna/markov-initial-build/_m5-hardened-stl
+# 
+# This file includes the relevant testing commands required for 
+# testing this directory and lists subdirectories to be tested as well.
+add_test("foundation_contract" "/home/saikrishna/markov-initial-build/_m5-hardened-stl/foundation_test")
+set_tests_properties("foundation_contract" PROPERTIES  TIMEOUT "30" _BACKTRACE_TRIPLES "/home/saikrishna/markov-initial-build/CMakeLists.txt;57;add_test;/home/saikrishna/markov-initial-build/CMakeLists.txt;0;")
+add_test("m1_model_parser_verifier" "/home/saikrishna/markov-initial-build/_m5-hardened-stl/m1_test")
+set_tests_properties("m1_model_parser_verifier" PROPERTIES  TIMEOUT "30" _BACKTRACE_TRIPLES "/home/saikrishna/markov-initial-build/CMakeLists.txt;58;add_test;/home/saikrishna/markov-initial-build/CMakeLists.txt;0;")
+add_test("m1_edge_cases" "/home/saikrishna/markov-initial-build/_m5-hardened-stl/m1_edge_test")
+set_tests_properties("m1_edge_cases" PROPERTIES  TIMEOUT "30" _BACKTRACE_TRIPLES "/home/saikrishna/markov-initial-build/CMakeLists.txt;59;add_test;/home/saikrishna/markov-initial-build/CMakeLists.txt;0;")
+add_test("m1_fuzz_smoke" "/home/saikrishna/markov-initial-build/_m5-hardened-stl/mps_fuzz_smoke")
+set_tests_properties("m1_fuzz_smoke" PROPERTIES  TIMEOUT "30" _BACKTRACE_TRIPLES "/home/saikrishna/markov-initial-build/CMakeLists.txt;60;add_test;/home/saikrishna/markov-initial-build/CMakeLists.txt;0;")
+add_test("m1_randomized_properties" "/home/saikrishna/markov-initial-build/_m5-hardened-stl/m1_property_test")
+set_tests_properties("m1_randomized_properties" PROPERTIES  TIMEOUT "30" _BACKTRACE_TRIPLES "/home/saikrishna/markov-initial-build/CMakeLists.txt;61;add_test;/home/saikrishna/markov-initial-build/CMakeLists.txt;0;")
+add_test("m2_dense_lu_canonicalization" "/home/saikrishna/markov-initial-build/_m5-hardened-stl/m2_test")
+set_tests_properties("m2_dense_lu_canonicalization" PROPERTIES  TIMEOUT "30" _BACKTRACE_TRIPLES "/home/saikrishna/markov-initial-build/CMakeLists.txt;62;add_test;/home/saikrishna/markov-initial-build/CMakeLists.txt;0;")
+add_test("m3_reference_primal_simplex" "/home/saikrishna/markov-initial-build/_m5-hardened-stl/m3_test")
+set_tests_properties("m3_reference_primal_simplex" PROPERTIES  TIMEOUT "30" _BACKTRACE_TRIPLES "/home/saikrishna/markov-initial-build/CMakeLists.txt;63;add_test;/home/saikrishna/markov-initial-build/CMakeLists.txt;0;")
+add_test("m3_randomized_differential" "/home/saikrishna/markov-initial-build/_m5-hardened-stl/m3_property_test")
+set_tests_properties("m3_randomized_differential" PROPERTIES  TIMEOUT "30" _BACKTRACE_TRIPLES "/home/saikrishna/markov-initial-build/CMakeLists.txt;64;add_test;/home/saikrishna/markov-initial-build/CMakeLists.txt;0;")
+add_test("m4_dual_simplex" "/home/saikrishna/markov-initial-build/_m5-hardened-stl/m4_test")
+set_tests_properties("m4_dual_simplex" PROPERTIES  TIMEOUT "30" _BACKTRACE_TRIPLES "/home/saikrishna/markov-initial-build/CMakeLists.txt;65;add_test;/home/saikrishna/markov-initial-build/CMakeLists.txt;0;")
+add_test("m4_randomized_warm_starts" "/home/saikrishna/markov-initial-build/_m5-hardened-stl/m4_property_test")
+set_tests_properties("m4_randomized_warm_starts" PROPERTIES  TIMEOUT "30" _BACKTRACE_TRIPLES "/home/saikrishna/markov-initial-build/CMakeLists.txt;66;add_test;/home/saikrishna/markov-initial-build/CMakeLists.txt;0;")
+add_test("m5_sparse_basis" "/home/saikrishna/markov-initial-build/_m5-hardened-stl/m5_test")
+set_tests_properties("m5_sparse_basis" PROPERTIES  TIMEOUT "30" _BACKTRACE_TRIPLES "/home/saikrishna/markov-initial-build/CMakeLists.txt;67;add_test;/home/saikrishna/markov-initial-build/CMakeLists.txt;0;")
+add_test("m5_sparse_update_properties" "/home/saikrishna/markov-initial-build/_m5-hardened-stl/m5_property_test")
+set_tests_properties("m5_sparse_update_properties" PROPERTIES  TIMEOUT "30" _BACKTRACE_TRIPLES "/home/saikrishna/markov-initial-build/CMakeLists.txt;68;add_test;/home/saikrishna/markov-initial-build/CMakeLists.txt;0;")
+add_test("m5_audit_regressions" "/home/saikrishna/markov-initial-build/_m5-hardened-stl/m5_audit_regression_test")
+set_tests_properties("m5_audit_regressions" PROPERTIES  _BACKTRACE_TRIPLES "/home/saikrishna/markov-initial-build/CMakeLists.txt;69;add_test;/home/saikrishna/markov-initial-build/CMakeLists.txt;0;")
+add_test("json_records" "/usr/bin/cmake" "-E" "env" "python3" "/home/saikrishna/markov-initial-build/scripts/validate_records.py" "/home/saikrishna/markov-initial-build")
+set_tests_properties("json_records" PROPERTIES  TIMEOUT "30" _BACKTRACE_TRIPLES "/home/saikrishna/markov-initial-build/CMakeLists.txt;70;add_test;/home/saikrishna/markov-initial-build/CMakeLists.txt;0;")
+add_test("no_future_solver_guard" "/usr/bin/cmake" "-E" "env" "python3" "/home/saikrishna/markov-initial-build/scripts/no_solver_guard.py" "/home/saikrishna/markov-initial-build")
+set_tests_properties("no_future_solver_guard" PROPERTIES  TIMEOUT "30" _BACKTRACE_TRIPLES "/home/saikrishna/markov-initial-build/CMakeLists.txt;71;add_test;/home/saikrishna/markov-initial-build/CMakeLists.txt;0;")

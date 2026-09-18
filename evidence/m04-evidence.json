@@ -1,0 +1,24 @@
+{
+  "schema_version": "1.0.0",
+  "milestone": "M4",
+  "version": "0.4.0",
+  "status": "signed_off",
+  "commit": "a33c09d9ded03c58ff0390cddeaf4e66fcca500c",
+  "archive_sha256": "see external release attestation",
+  "notes": [
+    "True dual revised-simplex pivots execute from validated dual-feasible warm bases.",
+    "Cold requests visibly delegate to the certified M3 oracle.",
+    "Basis fingerprinting, strict serialization, checksum validation, and cold fallback are implemented.",
+    "Bland and exact dense steepest-edge pricing plus conservative Harris and strict ratio modes are tested.",
+    "Five hundred randomized feasible and one hundred randomized infeasible RHS reoptimizations passed against M3.",
+    "Cumulative GCC warnings-as-errors, static analyzer, and ASan/UBSan checks passed.",
+    "CMake/Clang deployment matrix deferred to M5 by user approval.",
+    "Independent mathematical review tested 20,000 general dual-feasible cases and found one zero-row warm-start defect; fixed with a non-applicable condition-trigger bypass and regression.",
+    "Independent source/security review findings were fixed: option errors no longer trigger warm fallback, telemetry includes objective offset, and basis artifacts receive standalone semantic validation.",
+    "No-perturbation policy was explicitly accepted for the dense M4 reference path."
+  ],
+  "review": {
+    "mathematical": "SIGN-OFF after 20,000 independent randomized cases and zero-row remediation",
+    "source_security_release": "SIGN-OFF after adversarial validation and deterministic release reproduction"
+  }
+}
