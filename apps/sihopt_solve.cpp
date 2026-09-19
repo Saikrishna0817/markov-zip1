@@ -1,12 +1,15 @@
 #include "sihopt/foundation/build_info.hpp"
 #include "sihopt/io/mps.hpp"
+#include "sihopt/lp/dual/dual_simplex.hpp"
 #include "sihopt/lp/reference/revised_simplex.hpp"
 #include "sihopt/transform/canonicalize.hpp"
 #include "sihopt/verify/primal_verifier.hpp"
 #include "sihopt/verify/reference_lp_verifier.hpp"
 
+#include <cerrno>
 #include <chrono>
 #include <cmath>
+#include <cstdio>
 #include <cstdlib>
 #include <fstream>
 #include <iostream>
@@ -44,15 +47,23 @@ int exit_code(sihopt::lp::reference::SolveStatus status) {
 std::string json_escape(std::string_view text) {
     std::string out;
     out.reserve(text.size());
-    for (char c : text) {
+    for (unsigned char c : text) {
         if (c == '"' || c == '\\') {
             out.push_back('\\');
-        }
-        if (c == '\n') {
+            out.push_back(static_cast<char>(c));
+        } else if (c == '\n') {
             out += "\\n";
-            continue;
+        } else if (c == '\r') {
+            out += "\\r";
+        } else if (c == '\t') {
+            out += "\\t";
+        } else if (c < 0x20) {
+            char buf[8];
+            std::snprintf(buf, sizeof(buf), "\\u%04x", static_cast<unsigned int>(c));
+            out += buf;
+        } else {
+            out.push_back(static_cast<char>(c));
         }
-        out.push_back(c);
     }
     return out;
 }
@@ -82,7 +93,14 @@ std::string json_array(const std::vector<double>& values) {
 }
 
 void usage(std::ostream& out) {
-    out << "usage: sihopt-solve MODEL.mps [--output result.json] [--iteration-limit N]\n";
+    out << "usage: sihopt-solve MODEL.mps [options]\n"
+        << "options:\n"
+        << "  --output result.json     Write output JSON to file\n"
+        << "  --engine primal|dual     Select solver engine (default: primal)\n"
+        << "  --iteration-limit N      Maximum simplex iterations\n"
+        << "  --warm-start FILE        Load warm-start basis from file (dual engine)\n"
+        << "  --save-basis FILE        Save optimal basis to file\n"
+        << "  --help, -h               Show this help\n";
 }
 
 } // namespace
@@ -90,6 +108,9 @@ void usage(std::ostream& out) {
 int main(int argc, char** argv) {
     std::string path;
     std::string output_path;
+    std::string engine_name = "primal";
+    std::string warm_start_path;
+    std::string save_basis_path;
     sihopt::lp::reference::Options options;
     for (int i = 1; i < argc; ++i) {
         const std::string arg = argv[i];
@@ -105,12 +126,47 @@ int main(int argc, char** argv) {
             output_path = argv[++i];
             continue;
         }
+        if (arg == "--engine") {
+            if (i + 1 >= argc) {
+                usage(std::cerr);
+                return 8;
+            }
+            engine_name = argv[++i];
+            if (engine_name != "primal" && engine_name != "dual") {
+                std::cerr << "invalid engine (must be primal or dual): " << engine_name << "\n";
+                return 8;
+            }
+            continue;
+        }
+        if (arg == "--warm-start") {
+            if (i + 1 >= argc) {
+                usage(std::cerr);
+                return 8;
+            }
+            warm_start_path = argv[++i];
+            continue;
+        }
+        if (arg == "--save-basis") {
+            if (i + 1 >= argc) {
+                usage(std::cerr);
+                return 8;
+            }
+            save_basis_path = argv[++i];
+            continue;
+        }
         if (arg == "--iteration-limit") {
             if (i + 1 >= argc) {
                 usage(std::cerr);
                 return 8;
             }
-            options.iteration_limit = static_cast<std::size_t>(std::strtoull(argv[++i], nullptr, 10));
+            char* endptr = nullptr;
+            errno = 0;
+            const unsigned long long val = std::strtoull(argv[++i], &endptr, 10);
+            if (errno == ERANGE || endptr == argv[i] || *endptr != '\0') {
+                std::cerr << "invalid iteration limit: " << argv[i] << "\n";
+                return 8;
+            }
+            options.iteration_limit = static_cast<std::size_t>(val);
             continue;
         }
         if (!arg.empty() && arg[0] == '-') {
@@ -143,12 +199,41 @@ int main(int argc, char** argv) {
     sihopt::verify::PrimalVerificationReport primal_report;
     sihopt::verify::ReferenceVerification canonical_report;
     sihopt::lp::reference::Result result;
+    std::optional<sihopt::lp::dual::BasisState> basis_to_save;
+    bool used_warm_start = false;
+    bool used_cold_fallback = false;
     std::string error;
 
     try {
         const auto model = sihopt::io::parse_mps(input);
         const auto canonical = sihopt::transform::canonicalize(model);
-        result = sihopt::lp::reference::solve(canonical, options);
+
+        if (engine_name == "dual") {
+            sihopt::lp::dual::Options dual_opts;
+            dual_opts.iteration_limit = options.iteration_limit;
+            std::optional<sihopt::lp::dual::BasisState> warm_basis;
+            if (!warm_start_path.empty()) {
+                std::ifstream bfile(warm_start_path);
+                if (!bfile) {
+                    throw std::invalid_argument("cannot open warm-start basis file");
+                }
+                std::string btext((std::istreambuf_iterator<char>(bfile)),
+                                   std::istreambuf_iterator<char>());
+                warm_basis = sihopt::lp::dual::parse_basis(btext);
+            }
+            const auto dual_res = sihopt::lp::dual::solve(canonical, dual_opts, warm_basis);
+            result = dual_res.solution;
+            basis_to_save = dual_res.basis_state;
+            used_warm_start = dual_res.used_warm_start;
+            used_cold_fallback = dual_res.used_cold_fallback;
+        } else {
+            result = sihopt::lp::reference::solve(canonical, options);
+            if (result.status == sihopt::lp::reference::SolveStatus::optimal &&
+                result.basis.size() == canonical.matrix.rows) {
+                basis_to_save = sihopt::lp::dual::make_basis_state(canonical, result.basis);
+            }
+        }
+
         canonical_report = sihopt::verify::verify_reference_result(
             canonical, result, std::max(options.feasibility_tolerance, options.dual_tolerance));
         canonical_verified = canonical_report.accepted;
@@ -169,6 +254,11 @@ int main(int argc, char** argv) {
             if (!original_verified) {
                 result.status = sihopt::lp::reference::SolveStatus::numerical_failure;
                 result.message = "original-model verification failed";
+            } else if (!save_basis_path.empty() && basis_to_save.has_value()) {
+                std::ofstream bfile(save_basis_path);
+                if (bfile) {
+                    bfile << sihopt::lp::dual::serialize_basis(*basis_to_save);
+                }
             }
         } else {
             original_message = "original primal not applicable";
@@ -202,6 +292,7 @@ int main(int argc, char** argv) {
     std::ostringstream json;
     json << "{\"version\":\"" << json_escape(std::string(sihopt::foundation::version())) << "\","
          << "\"milestone\":\"" << json_escape(std::string(sihopt::foundation::milestone())) << "\","
+         << "\"engine\":\"" << json_escape(engine_name) << "\","
          << "\"status\":\"" << sihopt::lp::reference::to_string(result.status) << "\","
          << "\"verified\":" << (verified ? "true" : "false") << ","
          << "\"message\":\"" << json_escape(result.message) << "\","
@@ -213,6 +304,8 @@ int main(int argc, char** argv) {
          << "\"canonical_verified\":" << (canonical_verified ? "true" : "false") << ","
          << "\"original_verified\":" << (original_verified ? "true" : "false") << ","
          << "\"original_message\":\"" << json_escape(original_message) << "\","
+         << "\"used_warm_start\":" << (used_warm_start ? "true" : "false") << ","
+         << "\"used_cold_fallback\":" << (used_cold_fallback ? "true" : "false") << ","
          << "\"maximum_primal_violation\":" << json_number(primal_report.maximum_row_violation) << ","
          << "\"maximum_variable_violation\":" << json_number(primal_report.maximum_variable_violation) << ","
          << "\"maximum_canonical_primal_violation\":" << json_number(canonical_report.maximum_primal_violation) << ","

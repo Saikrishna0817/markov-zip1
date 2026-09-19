@@ -22,13 +22,31 @@ if (src / "lp").is_dir():
         if child.is_dir() and child not in allowed_lp:
             raise SystemExit("unexpected solver directory: " + str(child.relative_to(root)))
 
-tokens = ("branch_and_bound", "pdhg", "cudaKernel")
-for path in src.rglob("*"):
-    if not path.is_file():
+tokens = (
+    "branch_and_bound",
+    "pdhg",
+    "cudaKernel",
+    "cublas",
+    "cusparse",
+    "cudnn",
+    "glpk",
+    "cplex",
+    "gurobi",
+    "xpress",
+    "coin_or",
+    "highs",
+)
+
+scan_dirs = [src, root / "apps", root / "include"]
+for sdir in scan_dirs:
+    if not sdir.exists():
         continue
-    text = path.read_text(errors="ignore")
-    for token in tokens:
-        if token in text:
-            raise SystemExit(f"possible solver implementation token {token} in {path.relative_to(root)}")
+    for path in sdir.rglob("*"):
+        if not path.is_file():
+            continue
+        text = path.read_text(errors="ignore").lower()
+        for token in tokens:
+            if token in text:
+                raise SystemExit(f"possible solver implementation or foreign wrapper token '{token}' in {path.relative_to(root)}")
 
 print("scope guard passed")

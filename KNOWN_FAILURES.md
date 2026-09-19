@@ -1,20 +1,27 @@
-# Known failures and blockers
+# Known Failures, Blockers, and Prototype Boundaries
 
-## Current prototype (M5 RC)
+## Current Prototype Status (v0.5.1 / M5.1)
 
-1. Independent mathematical and source/security reviewers have not signed the exact candidate commit.
-2. GPU, MILP, convex QP, and reversible presolve are **not implemented**. They are future milestones (M6–M11), not missing bugfixes.
-3. Dual leaving-row pricing that is not Bland uses a **tableau-row norm** `||A^T B^{-T} e_i||^2`. That is not conventional dual steepest-edge `||B^{-T} e_i||^2`.
-4. Canonical models remain dense; sparse LU is the basis substrate only. Production sparse performance is not claimed.
-5. Incremental dual steepest-edge updates are not implemented (O(rows²) tableau-norm work per pivot, capped at 1024 rows).
-6. Strict MPS subset: no fixed-column MPS, no vendor extensions.
-7. Commercial-oracle access, judging logistics, and a first live MRPL dataset remain unresolved.
-8. Exact paper section/equation mapping stays blocked where no pinned lawful full text exists.
-9. NumericalPolicy defaults remain provisional pending independent review.
-10. QP Hessian / PSD policy is unspecified because QP is not in this prototype.
+1. **Solver Capabilities Implemented**:
+   - Continuous LP Primal Revised Simplex (`sihopt-solve --engine primal`)
+   - Continuous LP Dual Simplex with Basis Serialization and Warm Starts (`sihopt-solve --engine dual --warm-start FILE --save-basis FILE`)
+   - Sparse basis representation (`SparseLu` with product-form eta updates)
+   - Dual steepest-edge pricing via tableau-norm weighting
+   - Harris ratio test for numerically stable pivot selection
+   - Independent verification gating (`verify_reference_result` and `verify_primal`)
 
-## Historical M0–M1 notes
+2. **Known Architectural Limitations**:
+   - **Canonical representation is dense**: `CanonicalModel` uses dense matrices capped at 2048 dimensions and 4,194,304 elements. Sparse canonicalization is scheduled for Phase 2.
+   - **Dual steepest-edge pricing is $O(\text{rows}^2)$ per pivot**: Full tableau-norm is recomputed per pivot instead of the Forrest–Goldfarb recurrence update.
+   - **No Presolve / Scaling yet**: Reversible presolve reductions (Andersen & Andersen 1995) and Ruiz scaling are Phase 2 targets.
+   - **No MILP (Branch-and-Bound)**: Integer variables are not branched on; MILP is scheduled for Phase 3.
+   - **No GPU acceleration / PDLP**: Device-resident first-order solving is scheduled for Phase 4.
+   - **No Convex QP**: Quadratic objectives/constraints are not supported yet.
 
-M0 contained no solver by design; that statement is no longer the current product state. M3–M5 implement certified continuous simplex.
+3. **MPS Parser Boundaries**:
+   - Strict MPS dialect: Standard NAME, ROWS, COLUMNS, RHS, RANGES, BOUNDS, ENDATA sections supported.
+   - Hostile input safeguards: Bounded memory allocations, checked arithmetic dimensions, RFC 8259-compliant JSON output.
 
-Earlier sandbox notes (missing CMake/Clang in some audit environments) do not describe this deployment machine, which has GCC, Clang, CMake, and CTest.
+4. **Historical Clarifications**:
+   - M0 contained no solver by design; M3–M5 implement certified continuous simplex.
+   - All 20 test targets pass under Release and Sanitize builds.

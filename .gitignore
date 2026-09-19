@@ -1,5 +1,6 @@
 # Local CMake / compiler trees
 _m5-*/
+_deployment-*/
 build/
 cmake-build-*/
 _verify-*/
@@ -10,6 +11,11 @@ Makefile
 compile_commands.json
 CTestTestfile.cmake
 Testing/
+.DS_Store
+
+# Verification evidence reports that change locally
+evidence/local-verification-report.txt
+evidence/environment-local.json
 
 # Compiled artifacts
 *.o

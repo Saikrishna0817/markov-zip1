@@ -4,25 +4,196 @@
 #include <stdexcept>
 namespace sihopt::transform {
 namespace {
-constexpr std::size_t maximum_original_dimension=2048U;
-constexpr std::size_t maximum_canonical_dimension=8192U;
-constexpr std::size_t maximum_dense_elements=4U*1024U*1024U;
-void finite(double v,const char* message){if(!std::isfinite(v))throw std::overflow_error(message);}
-std::size_t checked_product(std::size_t a,std::size_t b){if(a!=0U&&b>std::numeric_limits<std::size_t>::max()/a)throw std::length_error("canonical matrix size overflow");const auto n=a*b;if(n>maximum_dense_elements)throw std::length_error("canonical dense-oracle element limit exceeded");return n;}
+constexpr std::size_t maximum_original_dimension = 2048U;
+constexpr std::size_t maximum_canonical_dimension = 8192U;
+constexpr std::size_t maximum_dense_elements = 4U * 1024U * 1024U;
+void finite(double v, const char* message) {
+    if (!std::isfinite(v))
+        throw std::overflow_error(message);
 }
-void CanonicalModel::validate()const{if(matrix.rows!=rhs.size()||matrix.columns!=objective.size())throw std::invalid_argument("canonical dimensions disagree");if(record.structural_variables>matrix.columns)throw std::invalid_argument("structural variable count exceeds canonical columns");if(record.objective_sign!=1.0&&record.objective_sign!=-1.0)throw std::invalid_argument("objective sign must be plus or minus one");finite(objective_offset,"canonical offset non-finite");matrix.validate();for(double v:rhs)finite(v,"canonical rhs non-finite");for(double v:objective)finite(v,"canonical objective non-finite");for(const auto&m:record.variables){finite(m.offset,"non-finite variable-map offset");if(m.canonical_index.size()!=m.multiplier.size())throw std::invalid_argument("variable-map dimension mismatch");for(std::size_t q=0;q<m.canonical_index.size();++q){if(m.canonical_index[q]>=record.structural_variables||m.canonical_index[q]>=matrix.columns)throw std::invalid_argument("variable-map index out of range");finite(m.multiplier[q],"non-finite variable-map multiplier");}}}
-CanonicalModel canonicalize(const model::Model& in){
- in.validate();for(const auto type:in.variable_type)if(type!=model::VariableType::continuous)throw std::invalid_argument("M2 canonicalization supports continuous variables only");if(in.matrix.row_count>maximum_original_dimension||in.matrix.column_count>maximum_original_dimension)throw std::length_error("dense canonicalization dimension limit exceeded");checked_product(in.matrix.row_count,in.matrix.column_count);
- CanonicalModel out;out.record.variables.resize(in.matrix.column_count);out.record.objective_sign=in.objective_sense==model::ObjectiveSense::minimize?1.0:-1.0;std::vector<double> offset(in.matrix.column_count);std::size_t structural=0;
- for(std::size_t j=0;j<in.matrix.column_count;++j){auto&m=out.record.variables[j];const auto lo=in.variable_lower[j],up=in.variable_upper[j];if(lo.is_finite()&&up.is_finite()&&lo.value==up.value){m.offset=lo.value;offset[j]=lo.value;continue;}m.offset=lo.is_finite()?lo.value:(up.is_finite()?up.value:0.0);offset[j]=m.offset;auto add=[&](double sign){if(structural>=maximum_canonical_dimension)throw std::length_error("canonical variable limit exceeded");m.canonical_index.push_back(structural++);m.multiplier.push_back(sign);};if(lo.is_finite())add(1);else if(up.is_finite())add(-1);else{add(1);add(-1);}}
- out.record.structural_variables=structural;std::vector<std::vector<double>> dense(in.matrix.row_count,std::vector<double>(in.matrix.column_count));for(std::size_t j=0;j<in.matrix.column_count;++j)for(std::size_t p=in.matrix.column_start[j];p<in.matrix.column_start[j+1];++p)dense[in.matrix.row_index[p]][j]+=in.matrix.value[p];
- struct Row{std::vector<double>a;double b;bool slack;};std::vector<Row> rows;auto push=[&](Row row){if(rows.size()>=maximum_canonical_dimension)throw std::length_error("canonical row limit exceeded");finite(row.b,"non-finite transformed rhs");for(double v:row.a)finite(v,"non-finite transformed coefficient");rows.push_back(std::move(row));};
- auto transformed=[&](std::size_t i,double sign,double bound,bool slack){Row row{{},0,slack};row.a.assign(structural,0);long double shift=0;for(std::size_t j=0;j<in.matrix.column_count;++j){shift+=static_cast<long double>(dense[i][j])*offset[j];for(std::size_t q=0;q<out.record.variables[j].canonical_index.size();++q)row.a[out.record.variables[j].canonical_index[q]]+=sign*dense[i][j]*out.record.variables[j].multiplier[q];}row.b=sign*(bound-static_cast<double>(shift));push(std::move(row));};
- for(std::size_t i=0;i<in.matrix.row_count;++i){const auto lo=in.row_lower[i],up=in.row_upper[i];if(lo.is_finite()&&up.is_finite()&&lo.value==up.value)transformed(i,1,lo.value,false);else{if(up.is_finite())transformed(i,1,up.value,true);if(lo.is_finite())transformed(i,-1,lo.value,true);}}
- for(std::size_t j=0;j<in.matrix.column_count;++j)if(in.variable_lower[j].is_finite()&&in.variable_upper[j].is_finite()&&in.variable_lower[j].value!=in.variable_upper[j].value){Row row{{},in.variable_upper[j].value-in.variable_lower[j].value,true};row.a.assign(structural,0);for(std::size_t q=0;q<out.record.variables[j].canonical_index.size();++q)row.a[out.record.variables[j].canonical_index[q]]=out.record.variables[j].multiplier[q];push(std::move(row));}
- std::size_t slacks=0;for(const auto&r:rows)if(r.slack){if(slacks==std::numeric_limits<std::size_t>::max())throw std::length_error("slack count overflow");++slacks;}if(structural>maximum_canonical_dimension-slacks)throw std::length_error("canonical column limit exceeded");const auto column_count=structural+slacks;out.matrix={rows.size(),column_count,std::vector<double>(checked_product(rows.size(),column_count))};out.rhs.resize(rows.size());std::size_t next_slack=structural;for(std::size_t i=0;i<rows.size();++i){for(std::size_t j=0;j<structural;++j)out.matrix(i,j)=rows[i].a[j];if(rows[i].slack)out.matrix(i,next_slack++)=1;out.rhs[i]=rows[i].b;}
- out.objective.assign(column_count,0);long double objective_offset=out.record.objective_sign*in.objective_offset;for(std::size_t j=0;j<in.matrix.column_count;++j){objective_offset+=static_cast<long double>(out.record.objective_sign)*in.objective[j]*offset[j];for(std::size_t q=0;q<out.record.variables[j].canonical_index.size();++q)out.objective[out.record.variables[j].canonical_index[q]]+=out.record.objective_sign*in.objective[j]*out.record.variables[j].multiplier[q];}out.objective_offset=static_cast<double>(objective_offset);out.validate();return out;
+std::size_t checked_product(std::size_t a, std::size_t b) {
+    if (a != 0U && b > std::numeric_limits<std::size_t>::max() / a)
+        throw std::length_error("canonical matrix size overflow");
+    const auto n = a * b;
+    if (n > maximum_dense_elements)
+        throw std::length_error("canonical dense-oracle element limit exceeded");
+    return n;
 }
-std::vector<double> reconstruct_primal(const CanonicalModel&c,const std::vector<double>&z){c.validate();if(z.size()!=c.objective.size())throw std::invalid_argument("canonical primal dimension mismatch");for(double v:z)finite(v,"canonical primal non-finite");std::vector<double>x(c.record.variables.size());for(std::size_t j=0;j<x.size();++j){long double value=c.record.variables[j].offset;for(std::size_t q=0;q<c.record.variables[j].canonical_index.size();++q)value+=static_cast<long double>(c.record.variables[j].multiplier[q])*z[c.record.variables[j].canonical_index[q]];x[j]=static_cast<double>(value);finite(x[j],"reconstructed primal non-finite");}return x;}
-double reconstruct_objective(const CanonicalModel&c,double v){c.validate();finite(v,"canonical objective non-finite");const double result=c.record.objective_sign*v;finite(result,"reconstructed objective non-finite");return result;}
+} // namespace
+void CanonicalModel::validate() const {
+    if (matrix.rows != rhs.size() || matrix.columns != objective.size())
+        throw std::invalid_argument("canonical dimensions disagree");
+    if (record.structural_variables > matrix.columns)
+        throw std::invalid_argument("structural variable count exceeds canonical columns");
+    if (record.objective_sign != 1.0 && record.objective_sign != -1.0)
+        throw std::invalid_argument("objective sign must be plus or minus one");
+    finite(objective_offset, "canonical offset non-finite");
+    matrix.validate();
+    for (double v : rhs)
+        finite(v, "canonical rhs non-finite");
+    for (double v : objective)
+        finite(v, "canonical objective non-finite");
+    for (const auto& m : record.variables) {
+        finite(m.offset, "non-finite variable-map offset");
+        if (m.canonical_index.size() != m.multiplier.size())
+            throw std::invalid_argument("variable-map dimension mismatch");
+        for (std::size_t q = 0; q < m.canonical_index.size(); ++q) {
+            if (m.canonical_index[q] >= record.structural_variables ||
+                m.canonical_index[q] >= matrix.columns)
+                throw std::invalid_argument("variable-map index out of range");
+            finite(m.multiplier[q], "non-finite variable-map multiplier");
+        }
+    }
 }
+CanonicalModel canonicalize(const model::Model& in) {
+    in.validate();
+    for (const auto type : in.variable_type)
+        if (type != model::VariableType::continuous)
+            throw std::invalid_argument("M2 canonicalization supports continuous variables only");
+    if (in.matrix.row_count > maximum_original_dimension ||
+        in.matrix.column_count > maximum_original_dimension)
+        throw std::length_error("dense canonicalization dimension limit exceeded");
+    checked_product(in.matrix.row_count, in.matrix.column_count);
+    CanonicalModel out;
+    out.record.variables.resize(in.matrix.column_count);
+    out.record.objective_sign = in.objective_sense == model::ObjectiveSense::minimize ? 1.0 : -1.0;
+    std::vector<double> offset(in.matrix.column_count);
+    std::size_t structural = 0;
+    for (std::size_t j = 0; j < in.matrix.column_count; ++j) {
+        auto& m = out.record.variables[j];
+        const auto lo = in.variable_lower[j], up = in.variable_upper[j];
+        if (lo.is_finite() && up.is_finite() && lo.value == up.value) {
+            m.offset = lo.value;
+            offset[j] = lo.value;
+            continue;
+        }
+        m.offset = lo.is_finite() ? lo.value : (up.is_finite() ? up.value : 0.0);
+        offset[j] = m.offset;
+        auto add = [&](double sign) {
+            if (structural >= maximum_canonical_dimension)
+                throw std::length_error("canonical variable limit exceeded");
+            m.canonical_index.push_back(structural++);
+            m.multiplier.push_back(sign);
+        };
+        if (lo.is_finite())
+            add(1);
+        else if (up.is_finite())
+            add(-1);
+        else {
+            add(1);
+            add(-1);
+        }
+    }
+    out.record.structural_variables = structural;
+    std::vector<std::vector<double>> dense(in.matrix.row_count,
+                                           std::vector<double>(in.matrix.column_count));
+    for (std::size_t j = 0; j < in.matrix.column_count; ++j)
+        for (std::size_t p = in.matrix.column_start[j]; p < in.matrix.column_start[j + 1]; ++p)
+            dense[in.matrix.row_index[p]][j] += in.matrix.value[p];
+    struct Row {
+        std::vector<double> a;
+        double b;
+        bool slack;
+    };
+    std::vector<Row> rows;
+    auto push = [&](Row row) {
+        if (rows.size() >= maximum_canonical_dimension)
+            throw std::length_error("canonical row limit exceeded");
+        finite(row.b, "non-finite transformed rhs");
+        for (double v : row.a)
+            finite(v, "non-finite transformed coefficient");
+        rows.push_back(std::move(row));
+    };
+    auto transformed = [&](std::size_t i, double sign, double bound, bool slack) {
+        Row row{{}, 0, slack};
+        row.a.assign(structural, 0);
+        long double shift = 0;
+        for (std::size_t j = 0; j < in.matrix.column_count; ++j) {
+            shift += static_cast<long double>(dense[i][j]) * offset[j];
+            for (std::size_t q = 0; q < out.record.variables[j].canonical_index.size(); ++q)
+                row.a[out.record.variables[j].canonical_index[q]] +=
+                    sign * dense[i][j] * out.record.variables[j].multiplier[q];
+        }
+        row.b = sign * (bound - static_cast<double>(shift));
+        push(std::move(row));
+    };
+    for (std::size_t i = 0; i < in.matrix.row_count; ++i) {
+        const auto lo = in.row_lower[i], up = in.row_upper[i];
+        if (lo.is_finite() && up.is_finite() && lo.value == up.value)
+            transformed(i, 1, lo.value, false);
+        else {
+            if (up.is_finite())
+                transformed(i, 1, up.value, true);
+            if (lo.is_finite())
+                transformed(i, -1, lo.value, true);
+        }
+    }
+    for (std::size_t j = 0; j < in.matrix.column_count; ++j)
+        if (in.variable_lower[j].is_finite() && in.variable_upper[j].is_finite() &&
+            in.variable_lower[j].value != in.variable_upper[j].value) {
+            Row row{{}, in.variable_upper[j].value - in.variable_lower[j].value, true};
+            row.a.assign(structural, 0);
+            for (std::size_t q = 0; q < out.record.variables[j].canonical_index.size(); ++q)
+                row.a[out.record.variables[j].canonical_index[q]] =
+                    out.record.variables[j].multiplier[q];
+            push(std::move(row));
+        }
+    std::size_t slacks = 0;
+    for (const auto& r : rows)
+        if (r.slack) {
+            if (slacks == std::numeric_limits<std::size_t>::max())
+                throw std::length_error("slack count overflow");
+            ++slacks;
+        }
+    if (structural > maximum_canonical_dimension - slacks)
+        throw std::length_error("canonical column limit exceeded");
+    const auto column_count = structural + slacks;
+    out.matrix = {rows.size(), column_count,
+                  std::vector<double>(checked_product(rows.size(), column_count))};
+    out.rhs.resize(rows.size());
+    std::size_t next_slack = structural;
+    for (std::size_t i = 0; i < rows.size(); ++i) {
+        for (std::size_t j = 0; j < structural; ++j)
+            out.matrix(i, j) = rows[i].a[j];
+        if (rows[i].slack)
+            out.matrix(i, next_slack++) = 1;
+        out.rhs[i] = rows[i].b;
+    }
+    out.objective.assign(column_count, 0);
+    long double objective_offset = out.record.objective_sign * in.objective_offset;
+    for (std::size_t j = 0; j < in.matrix.column_count; ++j) {
+        objective_offset +=
+            static_cast<long double>(out.record.objective_sign) * in.objective[j] * offset[j];
+        for (std::size_t q = 0; q < out.record.variables[j].canonical_index.size(); ++q)
+            out.objective[out.record.variables[j].canonical_index[q]] +=
+                out.record.objective_sign * in.objective[j] * out.record.variables[j].multiplier[q];
+    }
+    out.objective_offset = static_cast<double>(objective_offset);
+    out.validate();
+    return out;
+}
+std::vector<double> reconstruct_primal(const CanonicalModel& c, const std::vector<double>& z) {
+    c.validate();
+    if (z.size() != c.objective.size())
+        throw std::invalid_argument("canonical primal dimension mismatch");
+    for (double v : z)
+        finite(v, "canonical primal non-finite");
+    std::vector<double> x(c.record.variables.size());
+    for (std::size_t j = 0; j < x.size(); ++j) {
+        long double value = c.record.variables[j].offset;
+        for (std::size_t q = 0; q < c.record.variables[j].canonical_index.size(); ++q)
+            value += static_cast<long double>(c.record.variables[j].multiplier[q]) *
+                     z[c.record.variables[j].canonical_index[q]];
+        x[j] = static_cast<double>(value);
+        finite(x[j], "reconstructed primal non-finite");
+    }
+    return x;
+}
+double reconstruct_objective(const CanonicalModel& c, double v) {
+    c.validate();
+    finite(v, "canonical objective non-finite");
+    const double result = c.record.objective_sign * v;
+    finite(result, "reconstructed objective non-finite");
+    return result;
+}
+} // namespace sihopt::transform

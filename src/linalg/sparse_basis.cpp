@@ -4,23 +4,407 @@
 #include <limits>
 #include <map>
 #include <stdexcept>
-namespace sihopt::linalg { namespace {
-void require_finite(double v,const char* message){if(!std::isfinite(v))throw std::invalid_argument(message);}
-std::size_t count_nonzero(const std::vector<double>&v){return static_cast<std::size_t>(std::count_if(v.begin(),v.end(),[](double x){return x!=0;}));}
-void validate_options(const SparseBasisOptions&o){require_finite(o.singular_tolerance,"non-finite sparse singular tolerance");require_finite(o.update_pivot_tolerance,"non-finite sparse update tolerance");require_finite(o.eta_density_trigger,"non-finite eta density trigger");if(o.singular_tolerance<=0||o.update_pivot_tolerance<=0||o.eta_density_trigger<=0||o.eta_density_trigger>1||!o.maximum_updates||!o.maximum_dimension||!o.maximum_nonzeros||!o.maximum_factor_nonzeros)throw std::invalid_argument("invalid sparse basis options");}
+namespace sihopt::linalg {
+namespace {
+void require_finite(double v, const char* message) {
+    if (!std::isfinite(v))
+        throw std::invalid_argument(message);
 }
-void SparseCsc::validate(std::size_t maximum_nonzeros)const{if(rows>4096||columns>4096)throw std::length_error("sparse matrix dimension limit exceeded");if(column_offsets.size()!=columns+1||column_offsets.empty()||column_offsets.front()!=0||column_offsets.back()!=values.size()||row_indices.size()!=values.size())throw std::invalid_argument("invalid CSC dimensions");if(values.size()>maximum_nonzeros)throw std::length_error("sparse matrix nonzero limit exceeded");for(std::size_t j=0;j<columns;++j){if(column_offsets[j]>column_offsets[j+1])throw std::invalid_argument("CSC offsets are not monotone");std::size_t previous=0;bool first=true;for(std::size_t p=column_offsets[j];p<column_offsets[j+1];++p){if(row_indices[p]>=rows||(!first&&row_indices[p]<=previous))throw std::invalid_argument("CSC row indices are not canonical");require_finite(values[p],"non-finite sparse coefficient");if(values[p]==0)throw std::invalid_argument("explicit zero in canonical CSC");previous=row_indices[p];first=false;}}}
-std::vector<double>SparseCsc::dense_column(std::size_t column)const{validate();if(column>=columns)throw std::out_of_range("sparse column out of range");std::vector<double>out(rows);for(std::size_t p=column_offsets[column];p<column_offsets[column+1];++p)out[row_indices[p]]=values[p];return out;}
-SparseCsc SparseCsc::from_columns(std::size_t row_count,const std::vector<std::vector<double>>&columns_data){SparseCsc out;out.rows=row_count;out.columns=columns_data.size();out.column_offsets.push_back(0);for(const auto&column:columns_data){if(column.size()!=row_count)throw std::invalid_argument("sparse column dimension mismatch");for(std::size_t i=0;i<row_count;++i){require_finite(column[i],"non-finite sparse column value");if(column[i]!=0){out.row_indices.push_back(i);out.values.push_back(column[i]);}}out.column_offsets.push_back(out.values.size());}out.validate();return out;}
-SparseLu SparseLu::factorize(const SparseCsc&matrix,double singular_tolerance,std::size_t maximum_factor_nonzeros){matrix.validate();require_finite(singular_tolerance,"non-finite sparse singular tolerance");if(singular_tolerance<=0)throw std::invalid_argument("invalid sparse singular tolerance");if(matrix.rows!=matrix.columns)throw std::invalid_argument("sparse LU requires square matrix");SparseLu out;out.dimension_=matrix.rows;out.row_order_.resize(matrix.rows);for(std::size_t i=0;i<matrix.rows;++i)out.row_order_[i]=i;std::vector<std::map<std::size_t,double>>rows(matrix.rows);double maximum_original=0;for(std::size_t j=0;j<matrix.columns;++j)for(std::size_t p=matrix.column_offsets[j];p<matrix.column_offsets[j+1];++p){rows[matrix.row_indices[p]][j]=matrix.values[p];maximum_original=std::max(maximum_original,std::abs(matrix.values[p]));}out.diagnostics_.minimum_absolute_pivot=matrix.rows?std::numeric_limits<double>::infinity():0;double maximum_factor=maximum_original;for(std::size_t k=0;k<matrix.rows;++k){std::size_t pivot_row=k;double pivot_abs=0;for(std::size_t i=k;i<matrix.rows;++i){auto it=rows[i].find(k);if(it!=rows[i].end()&&std::abs(it->second)>pivot_abs){pivot_abs=std::abs(it->second);pivot_row=i;}}if(!std::isfinite(pivot_abs)||pivot_abs<=singular_tolerance)throw std::runtime_error("singular sparse basis");if(pivot_row!=k){std::swap(rows[pivot_row],rows[k]);std::swap(out.row_order_[pivot_row],out.row_order_[k]);}const double pivot=rows[k].at(k);out.diagnostics_.minimum_absolute_pivot=std::min(out.diagnostics_.minimum_absolute_pivot,std::abs(pivot));out.diagnostics_.maximum_absolute_pivot=std::max(out.diagnostics_.maximum_absolute_pivot,std::abs(pivot));for(std::size_t i=k+1;i<matrix.rows;++i){auto found=rows[i].find(k);if(found==rows[i].end())continue;const double multiplier=found->second/pivot;require_finite(multiplier,"non-finite sparse elimination multiplier");found->second=multiplier;for(auto it=rows[k].upper_bound(k);it!=rows[k].end();++it){double next=rows[i][it->first]-multiplier*it->second;require_finite(next,"non-finite sparse elimination result");if(next==0)rows[i].erase(it->first);else{rows[i][it->first]=next;maximum_factor=std::max(maximum_factor,std::abs(next));}}}std::size_t factor_count=0;for(const auto&row:rows){factor_count+=row.size();if(factor_count>maximum_factor_nonzeros)throw std::length_error("sparse factor fill limit exceeded");}}
-out.lower_rows_.resize(matrix.rows);out.upper_rows_.resize(matrix.rows);out.lower_columns_.resize(matrix.rows);out.upper_columns_.resize(matrix.rows);for(std::size_t i=0;i<matrix.rows;++i)for(const auto&[j,value]:rows[i]){if(j<i){out.lower_rows_[i].push_back({j,value});out.lower_columns_[j].push_back({i,value});++out.diagnostics_.lower_nonzeros;}else{out.upper_rows_[i].push_back({j,value});out.upper_columns_[j].push_back({i,value});++out.diagnostics_.upper_nonzeros;}}out.diagnostics_.factor_nonzeros=out.diagnostics_.lower_nonzeros+out.diagnostics_.upper_nonzeros;out.diagnostics_.growth_factor=maximum_original==0?0:maximum_factor/maximum_original;return out;}
-std::vector<double>SparseLu::solve(const std::vector<double>&rhs)const{if(rhs.size()!=dimension_)throw std::invalid_argument("sparse solve dimension mismatch");std::vector<double>y(dimension_);std::vector<bool>active(dimension_);for(std::size_t i=0;i<dimension_;++i){require_finite(rhs[row_order_[i]],"non-finite sparse RHS");y[i]=rhs[row_order_[i]];active[i]=y[i]!=0;}for(std::size_t i=0;i<dimension_;++i)if(active[i]){long double value=y[i];for(const auto&[j,a]:lower_rows_[i])value-=static_cast<long double>(a)*y[j];y[i]=static_cast<double>(value);require_finite(y[i],"non-finite sparse forward solve");if(y[i]!=0)for(const auto&[row,a]:lower_columns_[i]){(void)a;active[row]=true;}}std::vector<double>x=y;std::fill(active.begin(),active.end(),false);for(std::size_t i=0;i<dimension_;++i)active[i]=x[i]!=0;for(std::size_t ii=dimension_;ii-->0;)if(active[ii]){long double value=x[ii];double diagonal=0;for(const auto&[j,a]:upper_rows_[ii]){if(j==ii)diagonal=a;else value-=static_cast<long double>(a)*x[j];}if(diagonal==0)throw std::runtime_error("zero sparse diagonal");x[ii]=static_cast<double>(value/diagonal);require_finite(x[ii],"non-finite sparse back solve");if(x[ii]!=0)for(const auto&[row,a]:upper_columns_[ii])if(row<ii){(void)a;active[row]=true;}}return x;}
-std::vector<double>SparseLu::solve_transpose(const std::vector<double>&rhs)const{if(rhs.size()!=dimension_)throw std::invalid_argument("sparse transpose solve dimension mismatch");std::vector<double>y(rhs);std::vector<bool>active(dimension_);for(std::size_t i=0;i<dimension_;++i){require_finite(y[i],"non-finite sparse transpose RHS");active[i]=y[i]!=0;}for(std::size_t i=0;i<dimension_;++i)if(active[i]){long double value=y[i];double diagonal=0;for(const auto&[row,a]:upper_columns_[i]){if(row==i)diagonal=a;else if(row<i)value-=static_cast<long double>(a)*y[row];}if(diagonal==0)throw std::runtime_error("zero sparse transpose diagonal");y[i]=static_cast<double>(value/diagonal);require_finite(y[i],"non-finite sparse transpose U solve");if(y[i]!=0)for(const auto&[j,a]:upper_rows_[i])if(j>i){(void)a;active[j]=true;}}std::vector<double>z=y;std::fill(active.begin(),active.end(),false);for(std::size_t i=0;i<dimension_;++i)active[i]=z[i]!=0;for(std::size_t ii=dimension_;ii-->0;)if(active[ii]){long double value=z[ii];for(const auto&[row,a]:lower_columns_[ii])value-=static_cast<long double>(a)*z[row];z[ii]=static_cast<double>(value);require_finite(z[ii],"non-finite sparse transpose L solve");if(z[ii]!=0)for(const auto&[j,a]:lower_rows_[ii]){(void)a;active[j]=true;}}std::vector<double>x(dimension_);for(std::size_t i=0;i<dimension_;++i)x[row_order_[i]]=z[i];return x;}
-SparseBasisFactorization SparseBasisFactorization::factorize(const SparseCsc&basis,const SparseBasisOptions&options){validate_options(options);basis.validate(options.maximum_nonzeros);if(basis.rows!=basis.columns||basis.rows>options.maximum_dimension)throw std::invalid_argument("invalid sparse basis dimensions");SparseBasisFactorization out;out.options_=options;out.current_basis_=basis;out.base_=SparseLu::factorize(basis,options.singular_tolerance,options.maximum_factor_nonzeros);out.statistics_.refactorizations=1;return out;}
-std::vector<double>SparseBasisFactorization::solve(const std::vector<double>&rhs){statistics_.last_rhs_nonzeros=count_nonzero(rhs);auto x=base_.solve(rhs);for(const auto&eta:updates_){const double xp=x[eta.pivot]/eta.pivot_value;require_finite(xp,"non-finite eta solve pivot");for(const auto&[i,value]:eta.entries)if(i!=eta.pivot)x[i]-=value*xp;x[eta.pivot]=xp;}for(double v:x)require_finite(v,"non-finite eta solve result");statistics_.last_solution_nonzeros=count_nonzero(x);return x;}
-std::vector<double>SparseBasisFactorization::solve_transpose(const std::vector<double>&rhs){statistics_.last_rhs_nonzeros=count_nonzero(rhs);if(rhs.size()!=current_basis_.rows)throw std::invalid_argument("eta transpose dimension mismatch");std::vector<double>work=rhs;for(auto it=updates_.rbegin();it!=updates_.rend();++it){long double value=work[it->pivot];for(const auto&[i,a]:it->entries)if(i!=it->pivot)value-=static_cast<long double>(a)*work[i];work[it->pivot]=static_cast<double>(value/it->pivot_value);require_finite(work[it->pivot],"non-finite eta transpose solve");}auto x=base_.solve_transpose(work);statistics_.last_solution_nonzeros=count_nonzero(x);return x;}
-void SparseBasisFactorization::replace_column(std::size_t position,const std::vector<double>&column){if(position>=current_basis_.columns||column.size()!=current_basis_.rows)throw std::invalid_argument("sparse basis update dimension mismatch");for(double v:column)require_finite(v,"non-finite sparse update column");if(needs_refactorization())refactorize();SparseCsc next;next.rows=current_basis_.rows;next.columns=current_basis_.columns;next.column_offsets.push_back(0);for(std::size_t j=0;j<current_basis_.columns;++j){if(j==position){for(std::size_t i=0;i<column.size();++i)if(column[i]!=0){next.row_indices.push_back(i);next.values.push_back(column[i]);}}else for(std::size_t q=current_basis_.column_offsets[j];q<current_basis_.column_offsets[j+1];++q){next.row_indices.push_back(current_basis_.row_indices[q]);next.values.push_back(current_basis_.values[q]);}next.column_offsets.push_back(next.values.size());}next.validate(options_.maximum_nonzeros);auto direction=solve(column);if(std::abs(direction[position])<=options_.update_pivot_tolerance)throw std::runtime_error("unstable sparse basis update pivot");Eta eta;eta.pivot=position;eta.pivot_value=direction[position];for(std::size_t i=0;i<direction.size();++i)if(direction[i]!=0)eta.entries.push_back({i,direction[i]});auto nnz=eta.entries.size();updates_.push_back(std::move(eta));current_basis_=std::move(next);++statistics_.updates;statistics_.current_update_chain=updates_.size();statistics_.maximum_eta_nonzeros=std::max(statistics_.maximum_eta_nonzeros,nnz);statistics_.update_limit_triggered=updates_.size()>=options_.maximum_updates;statistics_.density_triggered=!direction.empty()&&static_cast<double>(nnz)/direction.size()>options_.eta_density_trigger;}
-bool SparseBasisFactorization::needs_refactorization()const noexcept{return statistics_.update_limit_triggered||statistics_.density_triggered;}
-void SparseBasisFactorization::refactorize(){base_=SparseLu::factorize(current_basis_,options_.singular_tolerance,options_.maximum_factor_nonzeros);updates_.clear();++statistics_.refactorizations;statistics_.current_update_chain=0;statistics_.update_limit_triggered=false;statistics_.density_triggered=false;}
-double sparse_infinity_residual(const SparseCsc&matrix,const std::vector<double>&x,const std::vector<double>&rhs,bool transpose){matrix.validate();const std::size_t expected_x=transpose?matrix.rows:matrix.columns;const std::size_t expected_rhs=transpose?matrix.columns:matrix.rows;if(x.size()!=expected_x||rhs.size()!=expected_rhs)throw std::invalid_argument("sparse residual dimension mismatch");std::vector<long double>product(expected_rhs);if(!transpose){for(std::size_t j=0;j<matrix.columns;++j){require_finite(x[j],"non-finite sparse residual input");for(std::size_t p=matrix.column_offsets[j];p<matrix.column_offsets[j+1];++p)product[matrix.row_indices[p]]+=static_cast<long double>(matrix.values[p])*x[j];}}else for(std::size_t j=0;j<matrix.columns;++j)for(std::size_t p=matrix.column_offsets[j];p<matrix.column_offsets[j+1];++p){require_finite(x[matrix.row_indices[p]],"non-finite sparse residual input");product[j]+=static_cast<long double>(matrix.values[p])*x[matrix.row_indices[p]];}double result=0;for(std::size_t i=0;i<rhs.size();++i){require_finite(rhs[i],"non-finite sparse residual RHS");double residual=static_cast<double>(static_cast<long double>(rhs[i])-product[i]);require_finite(residual,"non-finite sparse residual");result=std::max(result,std::abs(residual));}return result;}
+std::size_t count_nonzero(const std::vector<double>& v) {
+    return static_cast<std::size_t>(
+        std::count_if(v.begin(), v.end(), [](double x) { return x != 0; }));
 }
+void validate_options(const SparseBasisOptions& o) {
+    require_finite(o.singular_tolerance, "non-finite sparse singular tolerance");
+    require_finite(o.update_pivot_tolerance, "non-finite sparse update tolerance");
+    require_finite(o.eta_density_trigger, "non-finite eta density trigger");
+    if (o.singular_tolerance <= 0 || o.update_pivot_tolerance <= 0 || o.eta_density_trigger <= 0 ||
+        o.eta_density_trigger > 1 || !o.maximum_updates || !o.maximum_dimension ||
+        !o.maximum_nonzeros || !o.maximum_factor_nonzeros)
+        throw std::invalid_argument("invalid sparse basis options");
+}
+} // namespace
+void SparseCsc::validate(std::size_t maximum_nonzeros) const {
+    if (rows > 4096 || columns > 4096)
+        throw std::length_error("sparse matrix dimension limit exceeded");
+    if (column_offsets.size() != columns + 1 || column_offsets.empty() ||
+        column_offsets.front() != 0 || column_offsets.back() != values.size() ||
+        row_indices.size() != values.size())
+        throw std::invalid_argument("invalid CSC dimensions");
+    if (values.size() > maximum_nonzeros)
+        throw std::length_error("sparse matrix nonzero limit exceeded");
+    for (std::size_t j = 0; j < columns; ++j) {
+        if (column_offsets[j] > column_offsets[j + 1])
+            throw std::invalid_argument("CSC offsets are not monotone");
+        std::size_t previous = 0;
+        bool first = true;
+        for (std::size_t p = column_offsets[j]; p < column_offsets[j + 1]; ++p) {
+            if (row_indices[p] >= rows || (!first && row_indices[p] <= previous))
+                throw std::invalid_argument("CSC row indices are not canonical");
+            require_finite(values[p], "non-finite sparse coefficient");
+            if (values[p] == 0)
+                throw std::invalid_argument("explicit zero in canonical CSC");
+            previous = row_indices[p];
+            first = false;
+        }
+    }
+}
+std::vector<double> SparseCsc::dense_column(std::size_t column) const {
+    validate();
+    if (column >= columns)
+        throw std::out_of_range("sparse column out of range");
+    std::vector<double> out(rows);
+    for (std::size_t p = column_offsets[column]; p < column_offsets[column + 1]; ++p)
+        out[row_indices[p]] = values[p];
+    return out;
+}
+SparseCsc SparseCsc::from_columns(std::size_t row_count,
+                                  const std::vector<std::vector<double>>& columns_data) {
+    SparseCsc out;
+    out.rows = row_count;
+    out.columns = columns_data.size();
+    out.column_offsets.push_back(0);
+    for (const auto& column : columns_data) {
+        if (column.size() != row_count)
+            throw std::invalid_argument("sparse column dimension mismatch");
+        for (std::size_t i = 0; i < row_count; ++i) {
+            require_finite(column[i], "non-finite sparse column value");
+            if (column[i] != 0) {
+                out.row_indices.push_back(i);
+                out.values.push_back(column[i]);
+            }
+        }
+        out.column_offsets.push_back(out.values.size());
+    }
+    out.validate();
+    return out;
+}
+SparseLu SparseLu::factorize(const SparseCsc& matrix, double singular_tolerance,
+                             std::size_t maximum_factor_nonzeros) {
+    matrix.validate();
+    require_finite(singular_tolerance, "non-finite sparse singular tolerance");
+    if (singular_tolerance <= 0)
+        throw std::invalid_argument("invalid sparse singular tolerance");
+    if (matrix.rows != matrix.columns)
+        throw std::invalid_argument("sparse LU requires square matrix");
+    SparseLu out;
+    out.dimension_ = matrix.rows;
+    out.row_order_.resize(matrix.rows);
+    for (std::size_t i = 0; i < matrix.rows; ++i)
+        out.row_order_[i] = i;
+    std::vector<std::map<std::size_t, double>> rows(matrix.rows);
+    double maximum_original = 0;
+    for (std::size_t j = 0; j < matrix.columns; ++j)
+        for (std::size_t p = matrix.column_offsets[j]; p < matrix.column_offsets[j + 1]; ++p) {
+            rows[matrix.row_indices[p]][j] = matrix.values[p];
+            maximum_original = std::max(maximum_original, std::abs(matrix.values[p]));
+        }
+    out.diagnostics_.minimum_absolute_pivot =
+        matrix.rows ? std::numeric_limits<double>::infinity() : 0;
+    double maximum_factor = maximum_original;
+    for (std::size_t k = 0; k < matrix.rows; ++k) {
+        std::size_t pivot_row = k;
+        double pivot_abs = 0;
+        for (std::size_t i = k; i < matrix.rows; ++i) {
+            auto it = rows[i].find(k);
+            if (it != rows[i].end() && std::abs(it->second) > pivot_abs) {
+                pivot_abs = std::abs(it->second);
+                pivot_row = i;
+            }
+        }
+        if (!std::isfinite(pivot_abs) || pivot_abs <= singular_tolerance)
+            throw std::runtime_error("singular sparse basis");
+        if (pivot_row != k) {
+            std::swap(rows[pivot_row], rows[k]);
+            std::swap(out.row_order_[pivot_row], out.row_order_[k]);
+        }
+        const double pivot = rows[k].at(k);
+        out.diagnostics_.minimum_absolute_pivot =
+            std::min(out.diagnostics_.minimum_absolute_pivot, std::abs(pivot));
+        out.diagnostics_.maximum_absolute_pivot =
+            std::max(out.diagnostics_.maximum_absolute_pivot, std::abs(pivot));
+        for (std::size_t i = k + 1; i < matrix.rows; ++i) {
+            auto found = rows[i].find(k);
+            if (found == rows[i].end())
+                continue;
+            const double multiplier = found->second / pivot;
+            require_finite(multiplier, "non-finite sparse elimination multiplier");
+            found->second = multiplier;
+            for (auto it = rows[k].upper_bound(k); it != rows[k].end(); ++it) {
+                double next = rows[i][it->first] - multiplier * it->second;
+                require_finite(next, "non-finite sparse elimination result");
+                if (next == 0)
+                    rows[i].erase(it->first);
+                else {
+                    rows[i][it->first] = next;
+                    maximum_factor = std::max(maximum_factor, std::abs(next));
+                }
+            }
+        }
+        std::size_t factor_count = 0;
+        for (const auto& row : rows) {
+            factor_count += row.size();
+            if (factor_count > maximum_factor_nonzeros)
+                throw std::length_error("sparse factor fill limit exceeded");
+        }
+    }
+    out.lower_rows_.resize(matrix.rows);
+    out.upper_rows_.resize(matrix.rows);
+    out.lower_columns_.resize(matrix.rows);
+    out.upper_columns_.resize(matrix.rows);
+    for (std::size_t i = 0; i < matrix.rows; ++i)
+        for (const auto& [j, value] : rows[i]) {
+            if (j < i) {
+                out.lower_rows_[i].push_back({j, value});
+                out.lower_columns_[j].push_back({i, value});
+                ++out.diagnostics_.lower_nonzeros;
+            } else {
+                out.upper_rows_[i].push_back({j, value});
+                out.upper_columns_[j].push_back({i, value});
+                ++out.diagnostics_.upper_nonzeros;
+            }
+        }
+    out.diagnostics_.factor_nonzeros =
+        out.diagnostics_.lower_nonzeros + out.diagnostics_.upper_nonzeros;
+    out.diagnostics_.growth_factor = maximum_original == 0 ? 0 : maximum_factor / maximum_original;
+    return out;
+}
+std::vector<double> SparseLu::solve(const std::vector<double>& rhs) const {
+    if (rhs.size() != dimension_)
+        throw std::invalid_argument("sparse solve dimension mismatch");
+    std::vector<double> y(dimension_);
+    std::vector<bool> active(dimension_);
+    for (std::size_t i = 0; i < dimension_; ++i) {
+        require_finite(rhs[row_order_[i]], "non-finite sparse RHS");
+        y[i] = rhs[row_order_[i]];
+        active[i] = y[i] != 0;
+    }
+    for (std::size_t i = 0; i < dimension_; ++i)
+        if (active[i]) {
+            long double value = y[i];
+            for (const auto& [j, a] : lower_rows_[i])
+                value -= static_cast<long double>(a) * y[j];
+            y[i] = static_cast<double>(value);
+            require_finite(y[i], "non-finite sparse forward solve");
+            if (y[i] != 0)
+                for (const auto& [row, a] : lower_columns_[i]) {
+                    (void)a;
+                    active[row] = true;
+                }
+        }
+    std::vector<double> x = y;
+    std::fill(active.begin(), active.end(), false);
+    for (std::size_t i = 0; i < dimension_; ++i)
+        active[i] = x[i] != 0;
+    for (std::size_t ii = dimension_; ii-- > 0;)
+        if (active[ii]) {
+            long double value = x[ii];
+            double diagonal = 0;
+            for (const auto& [j, a] : upper_rows_[ii]) {
+                if (j == ii)
+                    diagonal = a;
+                else
+                    value -= static_cast<long double>(a) * x[j];
+            }
+            if (diagonal == 0)
+                throw std::runtime_error("zero sparse diagonal");
+            x[ii] = static_cast<double>(value / diagonal);
+            require_finite(x[ii], "non-finite sparse back solve");
+            if (x[ii] != 0)
+                for (const auto& [row, a] : upper_columns_[ii])
+                    if (row < ii) {
+                        (void)a;
+                        active[row] = true;
+                    }
+        }
+    return x;
+}
+std::vector<double> SparseLu::solve_transpose(const std::vector<double>& rhs) const {
+    if (rhs.size() != dimension_)
+        throw std::invalid_argument("sparse transpose solve dimension mismatch");
+    std::vector<double> y(rhs);
+    std::vector<bool> active(dimension_);
+    for (std::size_t i = 0; i < dimension_; ++i) {
+        require_finite(y[i], "non-finite sparse transpose RHS");
+        active[i] = y[i] != 0;
+    }
+    for (std::size_t i = 0; i < dimension_; ++i)
+        if (active[i]) {
+            long double value = y[i];
+            double diagonal = 0;
+            for (const auto& [row, a] : upper_columns_[i]) {
+                if (row == i)
+                    diagonal = a;
+                else if (row < i)
+                    value -= static_cast<long double>(a) * y[row];
+            }
+            if (diagonal == 0)
+                throw std::runtime_error("zero sparse transpose diagonal");
+            y[i] = static_cast<double>(value / diagonal);
+            require_finite(y[i], "non-finite sparse transpose U solve");
+            if (y[i] != 0)
+                for (const auto& [j, a] : upper_rows_[i])
+                    if (j > i) {
+                        (void)a;
+                        active[j] = true;
+                    }
+        }
+    std::vector<double> z = y;
+    std::fill(active.begin(), active.end(), false);
+    for (std::size_t i = 0; i < dimension_; ++i)
+        active[i] = z[i] != 0;
+    for (std::size_t ii = dimension_; ii-- > 0;)
+        if (active[ii]) {
+            long double value = z[ii];
+            for (const auto& [row, a] : lower_columns_[ii])
+                value -= static_cast<long double>(a) * z[row];
+            z[ii] = static_cast<double>(value);
+            require_finite(z[ii], "non-finite sparse transpose L solve");
+            if (z[ii] != 0)
+                for (const auto& [j, a] : lower_rows_[ii]) {
+                    (void)a;
+                    active[j] = true;
+                }
+        }
+    std::vector<double> x(dimension_);
+    for (std::size_t i = 0; i < dimension_; ++i)
+        x[row_order_[i]] = z[i];
+    return x;
+}
+SparseBasisFactorization SparseBasisFactorization::factorize(const SparseCsc& basis,
+                                                             const SparseBasisOptions& options) {
+    validate_options(options);
+    basis.validate(options.maximum_nonzeros);
+    if (basis.rows != basis.columns || basis.rows > options.maximum_dimension)
+        throw std::invalid_argument("invalid sparse basis dimensions");
+    SparseBasisFactorization out;
+    out.options_ = options;
+    out.current_basis_ = basis;
+    out.base_ =
+        SparseLu::factorize(basis, options.singular_tolerance, options.maximum_factor_nonzeros);
+    out.statistics_.refactorizations = 1;
+    return out;
+}
+std::vector<double> SparseBasisFactorization::solve(const std::vector<double>& rhs) {
+    statistics_.last_rhs_nonzeros = count_nonzero(rhs);
+    auto x = base_.solve(rhs);
+    for (const auto& eta : updates_) {
+        const double xp = x[eta.pivot] / eta.pivot_value;
+        require_finite(xp, "non-finite eta solve pivot");
+        for (const auto& [i, value] : eta.entries)
+            if (i != eta.pivot)
+                x[i] -= value * xp;
+        x[eta.pivot] = xp;
+    }
+    for (double v : x)
+        require_finite(v, "non-finite eta solve result");
+    statistics_.last_solution_nonzeros = count_nonzero(x);
+    return x;
+}
+std::vector<double> SparseBasisFactorization::solve_transpose(const std::vector<double>& rhs) {
+    statistics_.last_rhs_nonzeros = count_nonzero(rhs);
+    if (rhs.size() != current_basis_.rows)
+        throw std::invalid_argument("eta transpose dimension mismatch");
+    std::vector<double> work = rhs;
+    for (auto it = updates_.rbegin(); it != updates_.rend(); ++it) {
+        long double value = work[it->pivot];
+        for (const auto& [i, a] : it->entries)
+            if (i != it->pivot)
+                value -= static_cast<long double>(a) * work[i];
+        work[it->pivot] = static_cast<double>(value / it->pivot_value);
+        require_finite(work[it->pivot], "non-finite eta transpose solve");
+    }
+    auto x = base_.solve_transpose(work);
+    statistics_.last_solution_nonzeros = count_nonzero(x);
+    return x;
+}
+void SparseBasisFactorization::replace_column(std::size_t position,
+                                              const std::vector<double>& column) {
+    if (position >= current_basis_.columns || column.size() != current_basis_.rows)
+        throw std::invalid_argument("sparse basis update dimension mismatch");
+    for (double v : column)
+        require_finite(v, "non-finite sparse update column");
+    if (needs_refactorization())
+        refactorize();
+    SparseCsc next;
+    next.rows = current_basis_.rows;
+    next.columns = current_basis_.columns;
+    next.column_offsets.push_back(0);
+    for (std::size_t j = 0; j < current_basis_.columns; ++j) {
+        if (j == position) {
+            for (std::size_t i = 0; i < column.size(); ++i)
+                if (column[i] != 0) {
+                    next.row_indices.push_back(i);
+                    next.values.push_back(column[i]);
+                }
+        } else
+            for (std::size_t q = current_basis_.column_offsets[j];
+                 q < current_basis_.column_offsets[j + 1]; ++q) {
+                next.row_indices.push_back(current_basis_.row_indices[q]);
+                next.values.push_back(current_basis_.values[q]);
+            }
+        next.column_offsets.push_back(next.values.size());
+    }
+    next.validate(options_.maximum_nonzeros);
+    auto direction = solve(column);
+    if (std::abs(direction[position]) <= options_.update_pivot_tolerance)
+        throw std::runtime_error("unstable sparse basis update pivot");
+    Eta eta;
+    eta.pivot = position;
+    eta.pivot_value = direction[position];
+    for (std::size_t i = 0; i < direction.size(); ++i)
+        if (direction[i] != 0)
+            eta.entries.push_back({i, direction[i]});
+    auto nnz = eta.entries.size();
+    updates_.push_back(std::move(eta));
+    current_basis_ = std::move(next);
+    ++statistics_.updates;
+    statistics_.current_update_chain = updates_.size();
+    statistics_.maximum_eta_nonzeros = std::max(statistics_.maximum_eta_nonzeros, nnz);
+    statistics_.update_limit_triggered = updates_.size() >= options_.maximum_updates;
+    statistics_.density_triggered =
+        !direction.empty() &&
+        static_cast<double>(nnz) / direction.size() > options_.eta_density_trigger;
+}
+bool SparseBasisFactorization::needs_refactorization() const noexcept {
+    return statistics_.update_limit_triggered || statistics_.density_triggered;
+}
+void SparseBasisFactorization::refactorize() {
+    base_ = SparseLu::factorize(current_basis_, options_.singular_tolerance,
+                                options_.maximum_factor_nonzeros);
+    updates_.clear();
+    ++statistics_.refactorizations;
+    statistics_.current_update_chain = 0;
+    statistics_.update_limit_triggered = false;
+    statistics_.density_triggered = false;
+}
+double sparse_infinity_residual(const SparseCsc& matrix, const std::vector<double>& x,
+                                const std::vector<double>& rhs, bool transpose) {
+    matrix.validate();
+    const std::size_t expected_x = transpose ? matrix.rows : matrix.columns;
+    const std::size_t expected_rhs = transpose ? matrix.columns : matrix.rows;
+    if (x.size() != expected_x || rhs.size() != expected_rhs)
+        throw std::invalid_argument("sparse residual dimension mismatch");
+    std::vector<long double> product(expected_rhs);
+    if (!transpose) {
+        for (std::size_t j = 0; j < matrix.columns; ++j) {
+            require_finite(x[j], "non-finite sparse residual input");
+            for (std::size_t p = matrix.column_offsets[j]; p < matrix.column_offsets[j + 1]; ++p)
+                product[matrix.row_indices[p]] += static_cast<long double>(matrix.values[p]) * x[j];
+        }
+    } else
+        for (std::size_t j = 0; j < matrix.columns; ++j)
+            for (std::size_t p = matrix.column_offsets[j]; p < matrix.column_offsets[j + 1]; ++p) {
+                require_finite(x[matrix.row_indices[p]], "non-finite sparse residual input");
+                product[j] += static_cast<long double>(matrix.values[p]) * x[matrix.row_indices[p]];
+            }
+    double result = 0;
+    for (std::size_t i = 0; i < rhs.size(); ++i) {
+        require_finite(rhs[i], "non-finite sparse residual RHS");
+        double residual = static_cast<double>(static_cast<long double>(rhs[i]) - product[i]);
+        require_finite(residual, "non-finite sparse residual");
+        result = std::max(result, std::abs(residual));
+    }
+    return result;
+}
+} // namespace sihopt::linalg
