@@ -12,12 +12,14 @@ echo
 if [[ ! -x "$BUILD/markov-cero-solve" ]]; then
   echo "=== Build ==="
   cmake -S "$ROOT" -B "$BUILD" -DCMAKE_BUILD_TYPE=RelWithDebInfo -DMARKOV_CERO_WARNINGS_AS_ERRORS=ON
-  cmake --build "$BUILD" --target markov-cero-solve --parallel
+  cmake --build "$BUILD" --target markov-cero-solve markov-cero-info --parallel
   echo
 fi
 
 echo "=== Solver route ==="
-"$BUILD/markov-cero-info" || true
+if [[ -x "$BUILD/markov-cero-info" ]]; then
+  "$BUILD/markov-cero-info" || true
+fi
 echo "Engine: certified primal revised simplex (M3) after M2 canonicalization."
 echo "Independent checks: canonical witness + original-model primal."
 echo
@@ -37,6 +39,6 @@ echo "$OUT"
 cat "$OUT"
 echo
 echo "=== Limitations ==="
-echo "CPU continuous LP only. GPU, MILP, QP, and production presolve are not implemented."
+echo "CPU sovereign LP and MILP Branch-and-Cut engine. GPU and QP are not implemented."
 echo "Exit code $status (0 = verified Optimal)."
 exit "$status"
