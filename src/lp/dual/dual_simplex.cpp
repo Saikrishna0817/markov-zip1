@@ -1,8 +1,8 @@
-#include "sihopt/lp/dual/dual_simplex.hpp"
+#include "markov_cero/lp/dual/dual_simplex.hpp"
 
-#include "sihopt/linalg/dense_lu.hpp"
-#include "sihopt/linalg/sparse_basis.hpp"
-#include "sihopt/verify/reference_lp_verifier.hpp"
+#include "markov_cero/linalg/dense_lu.hpp"
+#include "markov_cero/linalg/sparse_basis.hpp"
+#include "markov_cero/verify/reference_lp_verifier.hpp"
 
 #include <algorithm>
 #include <bit>
@@ -14,7 +14,7 @@
 #include <sstream>
 #include <stdexcept>
 
-namespace sihopt::lp::dual {
+namespace markov_cero::lp::dual {
 namespace {
 
 constexpr std::size_t maximum_rows = 1024;
@@ -321,7 +321,7 @@ void validate_basis_artifact(const BasisState& s) {
 std::string serialize_basis(const BasisState& s) {
     validate_basis_artifact(s);
     std::ostringstream body;
-    body << "SIHOPT-BASIS-1 " << s.rows << ' ' << s.columns << ' ' << s.model_fingerprint << ' '
+    body << "MARKOV-CERO-BASIS-1 " << s.rows << ' ' << s.columns << ' ' << s.model_fingerprint << ' '
          << s.basic_variables.size();
     for (auto j : s.basic_variables) {
         body << ' ' << j;
@@ -335,7 +335,7 @@ BasisState parse_basis(const std::string& text) {
     std::string magic, fp, checksum, trailing;
     BasisState s;
     std::size_t count = 0;
-    if (!(in >> magic >> s.rows >> s.columns >> fp >> count) || magic != "SIHOPT-BASIS-1" || count > maximum_rows) {
+    if (!(in >> magic >> s.rows >> s.columns >> fp >> count) || magic != "MARKOV-CERO-BASIS-1" || count > maximum_rows) {
         throw std::invalid_argument("invalid basis header");
     }
     s.model_fingerprint = fp;
@@ -489,4 +489,4 @@ Result solve(const transform::CanonicalModel& m, const Options& o, const std::op
     }
 }
 
-} // namespace sihopt::lp::dual
+} // namespace markov_cero::lp::dual

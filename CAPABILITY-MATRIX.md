@@ -10,7 +10,7 @@
 | Sparse basis LU + eta updates | Implemented | `src/linalg/sparse_basis.cpp` |
 | Independent canonical verifier | Implemented | `src/verify/reference_lp_verifier.cpp` |
 | Original primal verifier | Implemented | `src/verify/primal_verifier.cpp` |
-| Solve CLI | Implemented | `apps/sihopt_solve.cpp` |
+| Solve CLI | Implemented | `apps/markov_cero_solve.cpp` |
 | Refinery demo | Implemented | `examples/refinery/`, `run-qualification-demo.sh` |
 | Dual steepest-edge (incremental) | **Not implemented** | Tableau-norm recomputed each pivot; M9 |
 | Presolve / postsolve | Planned M6 | Guarded |
@@ -20,7 +20,7 @@
 | Cuts / heuristics | Planned M10 | Guarded |
 | Convex QP | Planned M11 | Guarded (`src/qp`) |
 
-## `sihopt-solve` exit codes
+## `markov-cero-solve` exit codes
 
 | Code | Status |
 |---|---|

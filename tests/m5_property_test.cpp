@@ -1,11 +1,11 @@
-#include "sihopt/linalg/dense_lu.hpp"
-#include "sihopt/linalg/sparse_basis.hpp"
+#include "markov_cero/linalg/dense_lu.hpp"
+#include "markov_cero/linalg/sparse_basis.hpp"
 #include <algorithm>
 #include <cmath>
 #include <iostream>
 #include <random>
 #include <stdexcept>
-using namespace sihopt::linalg;
+using namespace markov_cero::linalg;
 namespace {
 void req(bool v,const char*m){if(!v)throw std::runtime_error(m);}
 DenseMatrix dense(const SparseCsc&s){DenseMatrix a{s.rows,s.columns,std::vector<double>(s.rows*s.columns)};for(std::size_t j=0;j<s.columns;++j)for(std::size_t p=s.column_offsets[j];p<s.column_offsets[j+1];++p)a.values[s.row_indices[p]*s.columns+j]=s.values[p];return a;}

@@ -8,7 +8,7 @@
   "notes": [
     "Sparse CSC, deterministic partial-pivot sparse LU, FTRAN, BTRAN, reach-restricted triangular solves, bounded eta updates, and refactorization triggers are implemented.",
     "The M4 dual warm path uses the M5 sparse basis substrate; M3 cold fallback and final-result verification remain intact.",
-    "User-facing sihopt-solve reconstructs the original primal and requires independent canonical plus original-model verification before Optimal.",
+    "User-facing markov-cero-solve reconstructs the original primal and requires independent canonical plus original-model verification before Optimal.",
     "GPU, MILP, QP, and presolve remain out of scope. Dual tableau-norm pricing is not incremental steepest-edge.",
     "Independent mathematical and source/security review of the exact freeze commit is still required."
   ],

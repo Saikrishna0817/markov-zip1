@@ -6,7 +6,7 @@
 #include <stdexcept>
 #include <vector>
 
-namespace sihopt::test_support {
+namespace markov_cero::test_support {
 class Rational final {
   public:
     Rational(std::int64_t numerator = 0, std::int64_t denominator = 1) {

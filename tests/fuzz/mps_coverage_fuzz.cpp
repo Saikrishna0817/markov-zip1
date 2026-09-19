@@ -1,4 +1,4 @@
-#include "sihopt/io/mps.hpp"
+#include "markov_cero/io/mps.hpp"
 #include <array>
 #include <chrono>
 #include <cstdint>
@@ -20,7 +20,7 @@ int main(int argc, char** argv) {
     std::vector<std::string> corpus={"", "NAME X\nROWS\n N O\nENDATA\n", "NAME X\nROWS\n N O\n L R\nCOLUMNS\n X O 1 R 1\nRHS\n R R 1\nENDATA\n"};
     std::size_t executions=0, discoveries=0;
     const auto deadline=std::chrono::steady_clock::now()+std::chrono::seconds(seconds);
-    sihopt::io::MpsLimits limits; limits.maximum_bytes=4096; limits.maximum_lines=512; limits.maximum_rows=128; limits.maximum_columns=128; limits.maximum_nonzeros=1024; limits.maximum_name_bytes=64;
+    markov_cero::io::MpsLimits limits; limits.maximum_bytes=4096; limits.maximum_lines=512; limits.maximum_rows=128; limits.maximum_columns=128; limits.maximum_nonzeros=1024; limits.maximum_name_bytes=64;
     while(std::chrono::steady_clock::now()<deadline){
         std::string input=corpus[random()%corpus.size()];
         const unsigned op=random()%4U;
@@ -28,7 +28,7 @@ int main(int argc, char** argv) {
         else if(op==1U && input.size()<limits.maximum_bytes) input.insert(input.begin()+static_cast<std::ptrdiff_t>(random()%(input.size()+1U)),static_cast<char>(random()%128U));
         else if(op==2U && !input.empty()) input.erase(input.begin()+static_cast<std::ptrdiff_t>(random()%input.size()));
         else if(op==3U && corpus.size()>1U && input.size()<2048U){ const auto& other=corpus[random()%corpus.size()]; input+=other.substr(0,std::min<std::size_t>(other.size(),2048U-input.size())); }
-        trial.fill(0U); try{(void)sihopt::io::parse_mps_string(input,limits);}catch(const std::exception&){}
+        trial.fill(0U); try{(void)markov_cero::io::parse_mps_string(input,limits);}catch(const std::exception&){}
         bool novel=false; for(std::size_t i=0;i<trial.size();++i) if(trial[i] && !total[i]){total[i]=1U; novel=true;}
         if(novel && corpus.size()<4096U){corpus.push_back(std::move(input)); ++discoveries;}
         ++executions;

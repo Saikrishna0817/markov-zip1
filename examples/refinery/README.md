@@ -1,6 +1,6 @@
 # Qualification refinery slice
 
-Four MPS files exercise the user-facing solver. Answers are **computed** by `sihopt-solve`; they are not baked into the demo script.
+Four MPS files exercise the user-facing solver. Answers are **computed** by `markov-cero-solve`; they are not baked into the demo script.
 
 | File | Expected typed outcome |
 |---|---|
@@ -11,8 +11,8 @@ Four MPS files exercise the user-facing solver. Answers are **computed** by `sih
 
 ```sh
 cmake -S ../.. -B ../../build -DCMAKE_BUILD_TYPE=RelWithDebInfo
-cmake --build ../../build -j --target sihopt-solve
-../../build/sihopt-solve refinery-feasible.mps
+cmake --build ../../build -j --target markov-cero-solve
+../../build/markov-cero-solve refinery-feasible.mps
 ```
 
 From the repository root, `bash run-qualification-demo.sh` runs the feasible case end to end.

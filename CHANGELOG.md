@@ -5,7 +5,7 @@
 - Stopped tracking CMake `_m5-*` build trees; added `.gitignore`.
 - Tightened `no_solver_guard.py` (still forbids MIP/QP/GPU/PDLP; allows `src/lp/reference` and `src/lp/dual`).
 - Reformatted M3/M4 simplex sources; renamed dual pricing `tableau_norm`.
-- Added `sihopt-solve`, refinery qualification models, and `run-qualification-demo.sh`.
+- Added `markov-cero-solve`, refinery qualification models, and `run-qualification-demo.sh`.
 - Documented current M5 capability vs planned M6–M11. GPU/MILP/QP remain unimplemented.
 
 ## 0.0.1 — 2026-09-13

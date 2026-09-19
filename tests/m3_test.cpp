@@ -1,10 +1,10 @@
-#include "sihopt/lp/reference/revised_simplex.hpp"
-#include "sihopt/verify/reference_lp_verifier.hpp"
+#include "markov_cero/lp/reference/revised_simplex.hpp"
+#include "markov_cero/verify/reference_lp_verifier.hpp"
 #include <cmath>
 #include <iostream>
 #include <limits>
 #include <stdexcept>
-using namespace sihopt;
+using namespace markov_cero;
 namespace {void req(bool q,const char*m){if(!q)throw std::runtime_error(m);}transform::CanonicalModel cm(std::size_t r,std::size_t c,std::vector<double>a,std::vector<double>b,std::vector<double>cost,double off=0){transform::CanonicalModel m;m.matrix={r,c,std::move(a)};m.rhs=std::move(b);m.objective=std::move(cost);m.objective_offset=off;m.record.objective_sign=1;m.record.structural_variables=c;m.record.variables.resize(c);for(std::size_t j=0;j<c;++j){m.record.variables[j].canonical_index={j};m.record.variables[j].multiplier={1};}m.validate();return m;}}
 int main(){
  auto optimal=cm(1,2,{1,1},{1},{-1,0},5);auto ro=lp::reference::solve(optimal);req(ro.status==lp::reference::SolveStatus::optimal,"optimal status");req(std::abs(ro.objective-4)<1e-9,"optimal objective");req(verify::verify_reference_result(optimal,ro).accepted,"optimal certificate");

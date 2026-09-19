@@ -1,9 +1,9 @@
-#include "sihopt/linalg/dense_lu.hpp"
+#include "markov_cero/linalg/dense_lu.hpp"
 #include <algorithm>
 #include <cmath>
 #include <limits>
 #include <stdexcept>
-namespace sihopt::linalg {
+namespace markov_cero::linalg {
 namespace {
 constexpr std::size_t maximum_dense_elements = 4U * 1024U * 1024U;
 std::size_t checked_product(std::size_t a, std::size_t b) {
@@ -191,4 +191,4 @@ double infinity_residual(const DenseMatrix& a, const std::vector<double>& x,
     }
     return r;
 }
-} // namespace sihopt::linalg
+} // namespace markov_cero::linalg

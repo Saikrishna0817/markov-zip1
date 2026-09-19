@@ -16,7 +16,7 @@ for path in root.rglob("*"):
         continue
     if rel.as_posix() in {"evidence/local-verification-report.txt", "evidence/environment-local.json"}:
         continue
-    files.append((path, Path("sihopt") / rel))
+    files.append((path, Path("markov-cero") / rel))
 with zipfile.ZipFile(out, "w", compression=zipfile.ZIP_DEFLATED, compresslevel=9) as archive:
     for path, arcname in sorted(files, key=lambda item: item[1].as_posix()):
         info = zipfile.ZipInfo(arcname.as_posix(), (2026, 9, 13, 0, 0, 0))

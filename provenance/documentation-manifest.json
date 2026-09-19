@@ -3,7 +3,7 @@
   "components": [
     {
       "id": "COMP-M0-INFO",
-      "path": "include/sihopt/foundation/build_info.hpp",
+      "path": "include/markov_cero/foundation/build_info.hpp",
       "owner": "clean-room implementer",
       "tests": [
         "foundation_contract"
@@ -99,7 +99,7 @@
     },
     {
       "id": "COMP-M4-API",
-      "path": "include/sihopt/lp/dual/dual_simplex.hpp",
+      "path": "include/markov_cero/lp/dual/dual_simplex.hpp",
       "owner": "clean-room implementer",
       "tests": [
         "m4_dual_simplex"

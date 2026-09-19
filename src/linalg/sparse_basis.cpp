@@ -1,10 +1,10 @@
-#include "sihopt/linalg/sparse_basis.hpp"
+#include "markov_cero/linalg/sparse_basis.hpp"
 #include <algorithm>
 #include <cmath>
 #include <limits>
 #include <map>
 #include <stdexcept>
-namespace sihopt::linalg {
+namespace markov_cero::linalg {
 namespace {
 void require_finite(double v, const char* message) {
     if (!std::isfinite(v))
@@ -407,4 +407,4 @@ double sparse_infinity_residual(const SparseCsc& matrix, const std::vector<doubl
     }
     return result;
 }
-} // namespace sihopt::linalg
+} // namespace markov_cero::linalg

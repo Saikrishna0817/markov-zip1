@@ -1,4 +1,4 @@
-# SIHOpt — Research Papers, Mathematical Foundations, and Design Lineage
+# markov-cero — Research Papers, Mathematical Foundations, and Design Lineage
 
 > **Smart India Hackathon 2026 — PS SIH26119 (MRPL)**  
 > *Indigenous GPU-Accelerated Software Optimization Solver (Sovereign Alternative to Xpress / CPLEX)*  
@@ -55,10 +55,10 @@
 
 ## 1. Executive Summary & Clean-Room Lineage
 
-The SIHOpt project is an indigenous, sovereign mathematical optimization engine developed from first principles in C++20 for Smart India Hackathon 2026 (Problem Statement **SIH26119**, sponsored by **Mangalore Refinery and Petrochemicals Limited - MRPL**).
+The markov-cero project is an indigenous, sovereign mathematical optimization engine developed from first principles in C++20 for Smart India Hackathon 2026 (Problem Statement **SIH26119**, sponsored by **Mangalore Refinery and Petrochemicals Limited - MRPL**).
 
 ### Clean-Room Engineering Principle
-SIHOpt does **not** wrap, copy, fork, or translate source code, test suites, internal naming, or constants from existing solvers (such as HiGHS, GLPK, Clp, SCIP, CPLEX, Gurobi, or Xpress). Instead:
+markov-cero does **not** wrap, copy, fork, or translate source code, test suites, internal naming, or constants from existing solvers (such as HiGHS, GLPK, Clp, SCIP, CPLEX, Gurobi, or Xpress). Instead:
 - All algorithms are implemented directly from peer-reviewed mathematical literature and textbooks.
 - Software boundaries are enforced mechanically in CI via `scripts/no_solver_guard.py` and link-line inspection.
 - Correctness is proven by an **independent verifier** that shares zero linear algebra or state with the solver core, checking mathematical certificates in original model space.
@@ -156,7 +156,7 @@ Each iteration executes three phases:
 ### 2.3 Dual Steepest-Edge (DSE) & Forrest–Goldfarb Recurrence
 
 > **Key Finding from Audit**:  
-> In SIHOpt v0.5.1, steepest-edge pricing recomputed the full vector norm $\|B^{-T} \mathbf{e}_i\|_2$ by performing BTRAN and SpMV for each candidate row in $O(m^2)$ work per pivot!  
+> In markov-cero v0.5.1, steepest-edge pricing recomputed the full vector norm $\|B^{-T} \mathbf{e}_i\|_2$ by performing BTRAN and SpMV for each candidate row in $O(m^2)$ work per pivot!  
 > **Huangfu & Hall (2018) Section 2.2.1** and **Forrest & Goldfarb (1992)** establish the exact $O(m)$ recurrence update that eliminates this bottleneck.
 
 #### Mathematical Definition
@@ -308,13 +308,143 @@ Presolve reduces problem dimensions and tightens bounds before sending the model
 
 **Cardinal Rule**: The postsolved solution MUST be re-measured against the original unscaled model. Any discrepancy surfaces as an objective/feasibility violation.
 
+### 3.3 Rigorous Mathematical Derivations for Phase 2 Reductions
+
+Following **Andersen & Andersen (1995)** and the lightweight presolve taxonomy of **Cederberg & Boyd (2026)**, Phase 2 implements four primary reductions that operate strictly in $O(m + n + \text{nnz})$ time without matrix fill-in:
+
+#### 3.3.1 Empty Rows ($a_{ij} = 0 \quad \forall j$)
+- **Presolve Condition**: Constraint $i$ has no nonzeros in $A$: $\sum_j 0 \cdot x_j = 0$.
+- **Feasibility Test**:
+  - If $0 < b_i^{\min} - \epsilon_{\text{feas}}$ or $0 > b_i^{\max} + \epsilon_{\text{feas}}$, the problem is mathematically **Primal Infeasible**. Presolve immediately halts and returns an infeasibility certificate.
+  - If $b_i^{\min} \le 0 \le b_i^{\max}$, row $i$ is strictly redundant.
+- **Presolve Action**: Row $i$ is deleted from the constraint matrix and RHS.
+- **Postsolve Restoration**:
+  - Primal: No primal variables were eliminated by this row.
+  - Dual: The dual multiplier associated with a redundant row is zero: $\pi_i = 0$.
+
+#### 3.3.2 Empty Columns ($a_{ij} = 0 \quad \forall i$)
+- **Presolve Condition**: Variable $j$ has no nonzeros in any row of $A$: column $A_{\cdot j} = \mathbf{0}$.
+- **Optimality & Boundedness**:
+  - If $c_j > 0$: To minimize $c_j x_j$, $x_j$ must be set as small as possible. If $l_j = -\infty$, the problem is **Primal Unbounded / Dual Infeasible**. Otherwise, fix $x_j^* = l_j$.
+  - If $c_j < 0$: To minimize $c_j x_j$, $x_j$ must be set as large as possible. If $u_j = +\infty$, the problem is **Primal Unbounded / Dual Infeasible**. Otherwise, fix $x_j^* = u_j$.
+  - If $c_j = 0$: Any feasible value in $[l_j, u_j]$ is optimal. Set $x_j^* = 0$ if $l_j \le 0 \le u_j$, else $x_j^* = l_j$.
+- **Presolve Action**: Column $j$ is removed from $A$, $c$, $l$, and $u$. Objective constant offset accumulates $z_0 \leftarrow z_0 + c_j x_j^*$.
+- **Postsolve Restoration**:
+  - Primal: Restore $x_j = x_j^*$.
+  - Dual: Reduced cost is $\widehat{c}_j = c_j - \boldsymbol{\pi}^T A_{\cdot j} = c_j - 0 = c_j$.
+  - Basis: Variable $j$ is non-basic at lower bound (if $x_j = l_j$) or upper bound (if $x_j = u_j$).
+
+#### 3.3.3 Fixed Variables ($l_j = u_j = \bar{x}_j$)
+- **Presolve Condition**: Variable $j$ has identical finite bounds $|u_j - l_j| \le \epsilon_{\text{feas}}$.
+- **Presolve Action**:
+  - Substitute $x_j = \bar{x}_j$ into all incident rows:
+    $$\mathbf{b} \leftarrow \mathbf{b} - A_{\cdot j} \bar{x}_j.$$
+  - Accumulate into objective offset:
+    $$z_0 \leftarrow z_0 + c_j \bar{x}_j.$$
+  - Column $j$ is removed from $A$.
+- **Postsolve Restoration**:
+  - Primal: Restore variable value $x_j = \bar{x}_j$.
+  - Dual: The reduced cost is reconstructed from the dual multipliers $\boldsymbol{\pi}$ of the unreduced incident rows:
+    $$\widehat{c}_j = c_j - \sum_{i: a_{ij} \ne 0} \pi_i a_{ij}.$$
+  - Basis: Fixed variables are designated non-basic at bound.
+
+#### 3.3.4 Row Singletons ($a_{ik} \ne 0$, $a_{ij} = 0 \; \forall j \ne k$)
+- **Presolve Condition**: Row $i$ contains exactly one non-zero entry at column $k$.
+- **Bound Contraction**:
+  - The constraint $b_i^{\min} \le a_{ik} x_k \le b_i^{\max}$ implies:
+    $$\begin{cases}
+    \frac{b_i^{\min}}{a_{ik}} \le x_k \le \frac{b_i^{\max}}{a_{ik}} & \text{if } a_{ik} > 0, \\
+    \frac{b_i^{\max}}{a_{ik}} \le x_k \le \frac{b_i^{\min}}{a_{ik}} & \text{if } a_{ik} < 0.
+    \end{cases}$$
+  - Intersect these implied bounds with the existing variable bounds $[l_k, u_k]$:
+    $$\bar{l}_k = \max(l_k, \text{implied\_lower}), \quad \bar{u}_k = \min(u_k, \text{implied\_upper}).$$
+  - If $\bar{l}_k > \bar{u}_k + \epsilon_{\text{feas}}$, the problem is **Primal Infeasible**.
+  - Update variable bounds $l_k \leftarrow \bar{l}_k$, $u_k \leftarrow \bar{u}_k$.
+  - Remove row $i$ from $A$ and $\mathbf{b}$.
+- **Postsolve Restoration**:
+  - Primal: Variable $x_k$ is already present in the reduced primal solution.
+  - Dual Multiplier $\pi_i$: Row $i$ was eliminated. The optimality condition for variable $k$ in the unreduced model requires:
+    $$\widehat{c}_k = c_k - \sum_{r} \pi_r a_{rk} = c_k - \pi_i a_{ik} - \sum_{r \ne i} \pi_r a_{rk}.$$
+    Solving for $\pi_i$ such that dual optimality is satisfied:
+    $$\pi_i = \frac{c_k - \widehat{c}_k^{\text{reduced}} - \sum_{r \ne i} \pi_r a_{rk}}{a_{ik}}.$$
+    If variable $k$ is basic in the reduced problem, $\widehat{c}_k^{\text{reduced}} = 0$, yielding exact shadow price:
+    $$\pi_i = \frac{c_k - \sum_{r \ne i} \pi_r a_{rk}}{a_{ik}}.$$
+
+### 3.4 Lightweight vs. Heavyweight Presolve Philosophy
+
+Recent empirical breakthroughs by **Cederberg & Boyd (2026, arXiv:2604.23951)** demonstrate that:
+1. **Diminishing Returns of Complex Reductions**: Heavyweight MIP presolve reductions (probing, clique tables, dual forcing, aggregate substitutions) consume 85–95% of presolve CPU time while providing less than 10–15% additional size reduction on continuous LPs compared to basic structural reductions.
+2. **Numerical Brittleness**: Complex substitutions create matrix fill-in and can degrade basis condition numbers $\kappa(B)$ by orders of magnitude.
+3. **The Sovereign Strategy**: A high-speed, multi-pass loop of the four lightweight reductions (Empty Rows, Empty Columns, Fixed Variables, Row Singletons) achieves over 80% of total possible reduction in $O(m + n + \text{nnz})$ linear time, maintaining strict numerical stability and zero matrix fill-in.
+
 ---
 
-## 4. First-Order Methods & GPU Acceleration (PDHG / PDLP)
+## 4. First-Order Methods & Matrix Scaling
 
 > **Primary Sources**:  
-> 1. David Applegate, Mateo Díaz, Oliver Hinder, Haihao Lu, Miles Lubin, Brendan O'Donoghue, Warren Schudy (Google Research, 2021). *"Practical Large-Scale Linear Programming Using Primal-Dual Hybrid Gradient"*, arXiv:2106.04756.  
-> 2. W. Dong et al. (2023). *"cuPDLP: A GPU Implementation of the Primal-Dual Hybrid Gradient Algorithm for Linear Programming"*.
+> 1. Daniel Ruiz (2001). *"A scaling algorithm to equilibrate both rows and column norms in matrices"*, **Technical Report RAL-TR-2001-034**, Rutherford Appleton Laboratory.  
+> 2. Philip A. Knight and Daniel Ruiz (2014). *"A fast algorithm for matrix balancing in $\ell_p$ norm"*, **SIAM J. Matrix Anal. Appl.**, 34(3): 1466–1485.  
+> 3. David Applegate et al. (Google Research, 2021). *"Practical Large-Scale Linear Programming Using Primal-Dual Hybrid Gradient"*, **arXiv:2106.04756**.
+
+### 4.1 Daniel Ruiz Iterative $\ell_\infty$ Equilibration Algorithm
+
+Matrix scaling significantly improves the condition number of the constraint matrix $A$, reducing simplex iteration counts and preventing near-singular pivot rejections. Ruiz scaling iteratively normalizes row and column infinity-norms to 1.
+
+```
+Algorithm: Ruiz Matrix Equilibration (ℓ∞ Norm)
+Input: Constraint matrix A ∈ ℝ^{m × n}, tolerance ε_tol = 1e-3, max_iter = 10
+Output: Diagonal scalers D_R ∈ ℝ^{m × m}, D_C ∈ ℝ^{n × n} such that D_R A D_C has unit norms.
+
+1. Initialize D_R = I_m, D_C = I_n, A^(0) = A.
+2. For k = 0, 1, 2, ..., max_iter - 1:
+   a. Compute row ∞-norms:
+      r_i = max_{1 ≤ j ≤ n} |a^(k)_{ij}|,   for i = 1, ..., m
+      If r_i == 0, set r_i = 1.0 (empty row handled by presolve).
+   b. Compute column ∞-norms:
+      c_j = max_{1 ≤ i ≤ m} |a^(k)_{ij}|,   for j = 1, ..., n
+      If c_j == 0, set c_j = 1.0 (empty column handled by presolve).
+   c. Form diagonal updates:
+      Δ_R = diag(1 / √r_1, ..., 1 / √r_m)
+      Δ_C = diag(1 / √c_1, ..., 1 / √c_n)
+   d. Update scalers and matrix:
+      A^(k+1) = Δ_R A^(k) Δ_C
+      D_R     = Δ_R D_R
+      D_C     = D_C Δ_C
+   e. Check convergence:
+      If max_i |1 - r_i| < ε_tol and max_j |1 - c_j| < ε_tol:
+         break.
+3. Return D_R, D_C.
+```
+
+### 4.2 Linear Program Scaling & Exact Invertible Unscaling
+
+Given diagonal scaling matrices $D_R = \operatorname{diag}(d_i^R)$ and $D_C = \operatorname{diag}(d_j^C)$:
+
+#### Transformed Problem:
+$$\begin{aligned}
+\min \quad & \bar{\mathbf{c}}^T \bar{\mathbf{x}} \\
+\text{s.t.} \quad & \bar{A} \bar{\mathbf{x}} = \bar{\mathbf{b}}, \\
+& \bar{\mathbf{l}} \le \bar{\mathbf{x}} \le \bar{\mathbf{u}},
+\end{aligned}$$
+where:
+$$\bar{A} = D_R A D_C, \quad \bar{\mathbf{b}} = D_R \mathbf{b}, \quad \bar{\mathbf{c}} = D_C \mathbf{c},$$
+$$\bar{l}_j = \frac{l_j}{d_j^C}, \quad \bar{u}_j = \frac{u_j}{d_j^C}.$$
+
+#### Exact Solution Recovery (Unscaling):
+1. **Primal Variables**:
+   $$\mathbf{x} = D_C \bar{\mathbf{x}} \quad \iff \quad x_j = d_j^C \cdot \bar{x}_j.$$
+2. **Dual Multipliers (Shadow Prices)**:
+   From Lagrangian optimality, $\bar{A}^T \bar{\boldsymbol{\pi}} + \bar{\mathbf{d}} = \bar{\mathbf{c}} \implies D_C A^T D_R \bar{\boldsymbol{\pi}} + \bar{\mathbf{d}} = D_C \mathbf{c}$.  
+   Multiplying by $D_C^{-1}$: $A^T (D_R \bar{\boldsymbol{\pi}}) + D_C^{-1} \bar{\mathbf{d}} = \mathbf{c}$.  
+   Therefore:
+   $$\boldsymbol{\pi} = D_R \bar{\boldsymbol{\pi}} \quad \iff \quad \pi_i = d_i^R \cdot \bar{\pi}_i.$$
+3. **Reduced Costs**:
+   $$\mathbf{d} = D_C^{-1} \bar{\mathbf{d}} \quad \iff \quad d_j = \frac{\bar{d}_j}{d_j^C}.$$
+4. **Objective Value**:
+   $$\mathbf{c}^T \mathbf{x} = \mathbf{c}^T (D_C \bar{\mathbf{x}}) = (D_C \mathbf{c})^T \bar{\mathbf{x}} = \bar{\mathbf{c}}^T \bar{\mathbf{x}}.$$
+   The objective value in scaled space matches the original objective value exactly!
+5. **Basis Invariance**:
+   Column $\bar{A}_{\cdot j} = d_j^C D_R A_{\cdot j}$. Since diagonal multiplication by $d_j^C > 0$ and $D_R > 0$ is a full-rank linear isomorphism, any set of columns $\mathcal{B}$ that forms a basis in $A$ is linearly independent if and only if it is linearly independent in $\bar{A}$. The optimal basis partition $(\mathcal{B}, \mathcal{N})$ is **strictly invariant** under diagonal scaling.
 
 For massive LPs ($10^6$ to $10^8$ variables) that exceed CPU memory or sparse LU factorization capacity, first-order methods running on GPUs represent the current state-of-the-art.
 
@@ -533,7 +663,7 @@ The dual multipliers $\boldsymbol{\pi}$ returned by the simplex solver have imme
 > Nicholas J. Higham (2002). *Accuracy and Stability of Numerical Algorithms*, 2nd ed., SIAM.
 
 ### 9.1 Floating-Point Arithmetic Rules
-- **NaN / Infinity Handling**: In IEEE 754, comparisons with NaN return `false` (except `!=`). Naive checks like `if (x > 0)` fail to catch NaNs. SIHOpt enforces `std::isfinite(val)` on every input, matrix entry, pivot, direction vector, and candidate solution.
+- **NaN / Infinity Handling**: In IEEE 754, comparisons with NaN return `false` (except `!=`). Naive checks like `if (x > 0)` fail to catch NaNs. markov-cero enforces `std::isfinite(val)` on every input, matrix entry, pivot, direction vector, and candidate solution.
 - **Fail-Closed Principle**: If matrix factorization encounters a pivot $|\alpha| < 10^{-13}$, or if condition estimate exceeds $10^{14}$, the engine returns `SolveStatus::numerical_failure`. It NEVER reports `Optimal` or `Infeasible` when numerical integrity is compromised.
 
 ### 9.2 Secure Resource Bounds (CWE Mitigations)
@@ -572,3 +702,13 @@ The dual multipliers $\boldsymbol{\pi}$ returned by the simplex solver have imme
     *Significance*: Landmark overview of modern MILP technology: B&B, cuts, presolve, and dual warm-starts.
 13. **Pinto, J. M., Joly, M., & Moro, L. F. L. (2000)**. *Planning and scheduling models for refinery operations*. **Computers & Chemical Engineering**, 24(9–10), 2259–2276. [doi:10.1016/S0098-1354(00)00588-4](https://doi.org/10.1016/S0098-1354(00)00588-4).  
     *Significance*: Operational linear programming models for refinery CDU/VDU scheduling and blending.
+14. **Cederberg, D., & Boyd, S. (2026)**. *Presolving for GPU-Accelerated First-Order LP Solvers*. **arXiv:2604.23951**.  
+    *Significance*: Demonstrates that a lightweight collection of core presolve rules captures >80% of problem reduction with negligible CPU overhead, zero matrix fill-in, and high numerical stability.
+15. **Cederberg, D., & Boyd, S. (2026)**. *GPU-Accelerated Presolving for Linear Programming*. **arXiv:2609.16182**.  
+    *Significance*: Establishes clean parallelization, memory-layout principles, and decoupled execution for linear programming presolve.
+16. **Ruiz, D. (2001)**. *A scaling algorithm to equilibrate both rows and column norms in matrices*. **Technical Report RAL-TR-2001-034**, Rutherford Appleton Laboratory.  
+    *Significance*: Foundational iterative $\ell_\infty$ equilibration algorithm for symmetric row and column norm balancing in linear systems and optimization.
+17. **Knight, P. A., & Ruiz, D. (2014)**. *A fast algorithm for matrix balancing in $\ell_p$ norm*. **SIAM Journal on Matrix Analysis and Applications**, 34(3), 1466–1485. [doi:10.1137/110828735](https://doi.org/10.1137/110828735).  
+    *Significance*: Convergence proofs, condition number bounds, and asymptotic properties of Ruiz equilibration.
+18. **Gay, D. M. (1985)**. *Electronic distribution of linear programming test problems*. **Mathematical Programming Society COAL Newsletter**, 13, 10–12.  
+    *Significance*: Origin, structure, and canonical reference optima of the Netlib Linear Programming test library.

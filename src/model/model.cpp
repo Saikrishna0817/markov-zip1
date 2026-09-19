@@ -1,4 +1,4 @@
-#include "sihopt/model/model.hpp"
+#include "markov_cero/model/model.hpp"
 
 #include <algorithm>
 #include <cmath>
@@ -7,7 +7,7 @@
 #include <set>
 #include <utility>
 
-namespace sihopt::model {
+namespace markov_cero::model {
 namespace {
 void require_finite(double value, const char* what) {
     if (!std::isfinite(value)) throw std::invalid_argument(std::string(what) + " must be finite");

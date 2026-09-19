@@ -1,8 +1,8 @@
-#include "sihopt/transform/canonicalize.hpp"
+#include "markov_cero/transform/canonicalize.hpp"
 #include <cmath>
 #include <limits>
 #include <stdexcept>
-namespace sihopt::transform {
+namespace markov_cero::transform {
 namespace {
 constexpr std::size_t maximum_original_dimension = 2048U;
 constexpr std::size_t maximum_canonical_dimension = 8192U;
@@ -196,4 +196,4 @@ double reconstruct_objective(const CanonicalModel& c, double v) {
     finite(result, "reconstructed objective non-finite");
     return result;
 }
-} // namespace sihopt::transform
+} // namespace markov_cero::transform

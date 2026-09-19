@@ -1,6 +1,6 @@
 {
   "schema_version": "1.0.0",
-  "note": "Statuses only. Feasible objectives must be computed by sihopt-solve, never hard-coded into the demo.",
+  "note": "Statuses only. Feasible objectives must be computed by markov-cero-solve, never hard-coded into the demo.",
   "cases": [
     {"file": "refinery-feasible.mps", "status": "Optimal"},
     {"file": "refinery-infeasible.mps", "status": "Infeasible"},

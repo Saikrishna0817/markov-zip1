@@ -1,5 +1,5 @@
-#include "sihopt/linalg/dense_lu.hpp"
-#include "sihopt/transform/canonicalize.hpp"
+#include "markov_cero/linalg/dense_lu.hpp"
+#include "markov_cero/transform/canonicalize.hpp"
 #include <cmath>
 #include <algorithm>
 #include <stdexcept>
@@ -7,7 +7,7 @@
 #include <random>
 #include <limits>
 static void req(bool v,const char*m){if(!v)throw std::runtime_error(m);} static bool close(double a,double b){return std::abs(a-b)<=1e-11*std::max({1.0,std::abs(a),std::abs(b)});}
-int main(){using namespace sihopt;
+int main(){using namespace markov_cero;
  linalg::DenseMatrix a{3,3,{4,2,0,2,5,1,0,1,3}};std::vector<double>x{1,2,3};auto b=linalg::multiply(a,x);auto lu=linalg::DenseLu::factorize(a);auto solved=lu.solve(b);for(std::size_t i=0;i<3;++i)req(close(solved[i],x[i]),"FTRAN identity");std::vector<double>y{3,-1,2};auto bt=linalg::multiply_transpose(a,y);auto solved_t=lu.solve_transpose(bt);for(std::size_t i=0;i<3;++i)req(close(solved_t[i],y[i]),"BTRAN identity");req(linalg::infinity_residual(a,solved,b)<1e-11,"residual");bool bad=false;try{(void)linalg::DenseLu::factorize({2,2,{1,2,2,4}});}catch(const std::runtime_error&){bad=true;}req(bad,"singular detection");
  std::mt19937_64 rng(0x4d324c55ULL);std::uniform_real_distribution<double>d(-1,1);for(int trial=0;trial<100;++trial){linalg::DenseMatrix r{5,5,std::vector<double>(25)};for(std::size_t i=0;i<5;++i)for(std::size_t j=0;j<5;++j)r(i,j)=d(rng);for(std::size_t i=0;i<5;++i)r(i,i)+=6;std::vector<double>q(5);for(double&v:q)v=d(rng);auto rf=linalg::DenseLu::factorize(r);auto rb=linalg::multiply(r,q);auto rt=linalg::multiply_transpose(r,q);req(linalg::infinity_residual(r,rf.solve(rb),rb)<1e-10,"random FTRAN");req(linalg::infinity_residual(r,rf.solve_transpose(rt),rt,true)<1e-10,"random BTRAN");}
  model::SparseMatrixBuilder mb(2,3);mb.add(0,0,1);mb.add(0,1,1);mb.add(0,2,1);mb.add(1,0,1);mb.add(1,2,-1);model::Model m;m.name="canonical";m.objective_sense=model::ObjectiveSense::maximize;m.matrix=mb.build();m.row_name={"eq","le"};m.row_lower={model::Bound::finite(4),model::Bound::negative_infinity()};m.row_upper={model::Bound::finite(4),model::Bound::finite(2)};m.variable_name={"free","fixed","boxed"};m.objective={1,2,3};m.objective_offset=5;m.variable_lower={model::Bound::negative_infinity(),model::Bound::finite(2),model::Bound::finite(0)};m.variable_upper={model::Bound::positive_infinity(),model::Bound::finite(2),model::Bound::finite(3)};m.variable_type={model::VariableType::continuous,model::VariableType::continuous,model::VariableType::continuous};m.validate();auto c=transform::canonicalize(m);std::vector<double>z{1,0,1,2,2};for(double q:z)req(q>=0,"canonical nonnegative");auto residual=linalg::infinity_residual(c.matrix,z,c.rhs);req(residual<1e-12,"canonical equality residual");auto original=transform::reconstruct_primal(c,z);req(close(original[0],1)&&close(original[1],2)&&close(original[2],1),"postsolve primal");long double cv=c.objective_offset;for(std::size_t j=0;j<z.size();++j)cv+=c.objective[j]*z[j];req(close(transform::reconstruct_objective(c,static_cast<double>(cv)),13),"postsolve objective");

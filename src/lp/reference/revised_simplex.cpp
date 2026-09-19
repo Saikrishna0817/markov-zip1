@@ -1,14 +1,14 @@
-#include "sihopt/lp/reference/revised_simplex.hpp"
+#include "markov_cero/lp/reference/revised_simplex.hpp"
 
-#include "sihopt/linalg/dense_lu.hpp"
-#include "sihopt/verify/reference_lp_verifier.hpp"
+#include "markov_cero/linalg/dense_lu.hpp"
+#include "markov_cero/verify/reference_lp_verifier.hpp"
 
 #include <algorithm>
 #include <cmath>
 #include <limits>
 #include <stdexcept>
 
-namespace sihopt::lp::reference {
+namespace markov_cero::lp::reference {
 namespace {
 
 constexpr std::size_t maximum_rows = 1024;
@@ -473,4 +473,4 @@ const char* to_string(SolveStatus s) noexcept {
     return "Unknown";
 }
 
-} // namespace sihopt::lp::reference
+} // namespace markov_cero::lp::reference

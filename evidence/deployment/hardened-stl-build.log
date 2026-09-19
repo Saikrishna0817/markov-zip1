@@ -1,23 +1,23 @@
-[  2%] Building CXX object CMakeFiles/sihopt_core.dir/src/foundation/build_info.cpp.o
-[  4%] Building CXX object CMakeFiles/sihopt_core.dir/src/model/model.cpp.o
-[  7%] Building CXX object CMakeFiles/sihopt_core.dir/src/io/mps.cpp.o
-[  9%] Building CXX object CMakeFiles/sihopt_core.dir/src/verify/primal_verifier.cpp.o
-[ 12%] Building CXX object CMakeFiles/sihopt_core.dir/src/linalg/dense_lu.cpp.o
-[ 14%] Building CXX object CMakeFiles/sihopt_core.dir/src/linalg/sparse_basis.cpp.o
-[ 17%] Building CXX object CMakeFiles/sihopt_core.dir/src/transform/canonicalize.cpp.o
-[ 19%] Building CXX object CMakeFiles/sihopt_core.dir/src/lp/reference/revised_simplex.cpp.o
-[ 21%] Building CXX object CMakeFiles/sihopt_core.dir/src/verify/reference_lp_verifier.cpp.o
-[ 24%] Building CXX object CMakeFiles/sihopt_core.dir/src/lp/dual/dual_simplex.cpp.o
-[ 26%] Linking CXX static library libsihopt_core.a
-[ 26%] Built target sihopt_core
-[ 29%] Building CXX object CMakeFiles/sihopt-info.dir/apps/sihopt_info.cpp.o
-[ 31%] Building CXX object CMakeFiles/sihopt-mps-inspect.dir/apps/sihopt_mps_inspect.cpp.o
-[ 34%] Linking CXX executable sihopt-info
-[ 34%] Built target sihopt-info
+[  2%] Building CXX object CMakeFiles/markov_cero_core.dir/src/foundation/build_info.cpp.o
+[  4%] Building CXX object CMakeFiles/markov_cero_core.dir/src/model/model.cpp.o
+[  7%] Building CXX object CMakeFiles/markov_cero_core.dir/src/io/mps.cpp.o
+[  9%] Building CXX object CMakeFiles/markov_cero_core.dir/src/verify/primal_verifier.cpp.o
+[ 12%] Building CXX object CMakeFiles/markov_cero_core.dir/src/linalg/dense_lu.cpp.o
+[ 14%] Building CXX object CMakeFiles/markov_cero_core.dir/src/linalg/sparse_basis.cpp.o
+[ 17%] Building CXX object CMakeFiles/markov_cero_core.dir/src/transform/canonicalize.cpp.o
+[ 19%] Building CXX object CMakeFiles/markov_cero_core.dir/src/lp/reference/revised_simplex.cpp.o
+[ 21%] Building CXX object CMakeFiles/markov_cero_core.dir/src/verify/reference_lp_verifier.cpp.o
+[ 24%] Building CXX object CMakeFiles/markov_cero_core.dir/src/lp/dual/dual_simplex.cpp.o
+[ 26%] Linking CXX static library libmarkov_cero_core.a
+[ 26%] Built target markov_cero_core
+[ 29%] Building CXX object CMakeFiles/markov-cero-info.dir/apps/markov_cero_info.cpp.o
+[ 31%] Building CXX object CMakeFiles/markov-cero-mps-inspect.dir/apps/markov_cero_mps_inspect.cpp.o
+[ 34%] Linking CXX executable markov-cero-info
+[ 34%] Built target markov-cero-info
 [ 36%] Building CXX object CMakeFiles/foundation_test.dir/tests/foundation_test.cpp.o
-[ 39%] Linking CXX executable sihopt-mps-inspect
+[ 39%] Linking CXX executable markov-cero-mps-inspect
 [ 41%] Linking CXX executable foundation_test
-[ 41%] Built target sihopt-mps-inspect
+[ 41%] Built target markov-cero-mps-inspect
 [ 43%] Building CXX object CMakeFiles/m1_test.dir/tests/m1_test.cpp.o
 [ 43%] Built target foundation_test
 [ 46%] Building CXX object CMakeFiles/m1_edge_test.dir/tests/m1_edge_test.cpp.o

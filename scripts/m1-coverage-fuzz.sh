@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)"
-BUILD="${TMPDIR:-/tmp}/sihopt-m1-coverage-fuzz"
+BUILD="${TMPDIR:-/tmp}/markov-cero-m1-coverage-fuzz"
 SECONDS_TO_RUN="${1:-60}"
 rm -rf "$BUILD"; mkdir -p "$BUILD"
 CXX=${CXX:-g++}

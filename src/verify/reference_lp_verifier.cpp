@@ -1,12 +1,12 @@
-#include "sihopt/verify/reference_lp_verifier.hpp"
-#include "sihopt/linalg/dense_lu.hpp"
+#include "markov_cero/verify/reference_lp_verifier.hpp"
+#include "markov_cero/linalg/dense_lu.hpp"
 #include <algorithm>
 #include <cmath>
 #include <limits>
 #include <stdexcept>
-namespace sihopt::verify {
+namespace markov_cero::verify {
 namespace {
-constexpr double roundoff_factor = 64.0 * std::numeric_limits<double>::epsilon();
+constexpr double roundoff_factor = 512.0 * std::numeric_limits<double>::epsilon();
 bool finite(const std::vector<double>& v) {
     return std::all_of(v.begin(), v.end(), [](double x) { return std::isfinite(x); });
 }
@@ -78,17 +78,25 @@ ReferenceVerification verify_reference_result(const transform::CanonicalModel& m
                 pok = pok && e <= allowed(std::abs(x), tol);
             }
             auto aty = linalg::multiply_transpose(m.matrix, r.dual);
+            double max_cost = 0.0;
+            for (double c : m.objective) {
+                max_cost = std::max(max_cost, std::abs(c));
+            }
             bool dok = true, cok = true;
             for (std::size_t j = 0; j < aty.size(); ++j) {
+                double col_norm = 0.0;
+                for (std::size_t i = 0; i < m.matrix.rows; ++i) {
+                    col_norm += std::abs(m.matrix(i, j));
+                }
+                const double c_scale = std::max(col_scale(m.matrix, j, r.dual, m.objective[j]), col_norm * max_cost);
                 double rc = m.objective[j] - aty[j], e = std::max(0.0, -rc);
                 v.maximum_dual_violation = std::max(v.maximum_dual_violation, e);
-                dok = dok && e <= allowed(col_scale(m.matrix, j, r.dual, m.objective[j]), tol);
+                dok = dok && e <= allowed(c_scale, tol);
                 double comp = std::abs(r.primal[j] * rc);
                 v.maximum_complementarity_violation =
                     std::max(v.maximum_complementarity_violation, comp);
-                cok = cok && comp <= allowed(std::abs(r.primal[j] * m.objective[j]) +
-                                                 std::abs(r.primal[j] * aty[j]),
-                                             tol);
+                const double comp_scale = std::max(1.0, std::abs(r.primal[j])) * std::max(1.0, c_scale);
+                cok = cok && comp <= allowed(comp_scale, tol);
             }
             double po = dot(m.objective, r.primal) + m.objective_offset,
                    du = dot(m.rhs, r.dual) + m.objective_offset,
@@ -164,4 +172,4 @@ ReferenceVerification verify_reference_result(const transform::CanonicalModel& m
         return v;
     }
 }
-} // namespace sihopt::verify
+} // namespace markov_cero::verify

@@ -7,26 +7,26 @@
 -- Configuring done (0.3s)
 -- Generating done (0.0s)
 -- Build files have been written to: /home/saikrishna/markov-initial-build/_m5-deploy-gxx
-[  2%] Building CXX object CMakeFiles/sihopt_core.dir/src/foundation/build_info.cpp.o
-[  4%] Building CXX object CMakeFiles/sihopt_core.dir/src/model/model.cpp.o
-[  7%] Building CXX object CMakeFiles/sihopt_core.dir/src/io/mps.cpp.o
-[  9%] Building CXX object CMakeFiles/sihopt_core.dir/src/verify/primal_verifier.cpp.o
-[ 12%] Building CXX object CMakeFiles/sihopt_core.dir/src/linalg/dense_lu.cpp.o
-[ 14%] Building CXX object CMakeFiles/sihopt_core.dir/src/linalg/sparse_basis.cpp.o
-[ 17%] Building CXX object CMakeFiles/sihopt_core.dir/src/transform/canonicalize.cpp.o
-[ 19%] Building CXX object CMakeFiles/sihopt_core.dir/src/lp/reference/revised_simplex.cpp.o
-[ 21%] Building CXX object CMakeFiles/sihopt_core.dir/src/verify/reference_lp_verifier.cpp.o
-[ 24%] Building CXX object CMakeFiles/sihopt_core.dir/src/lp/dual/dual_simplex.cpp.o
-[ 26%] Linking CXX static library libsihopt_core.a
-[ 26%] Built target sihopt_core
-[ 29%] Building CXX object CMakeFiles/sihopt-mps-inspect.dir/apps/sihopt_mps_inspect.cpp.o
-[ 31%] Building CXX object CMakeFiles/sihopt-info.dir/apps/sihopt_info.cpp.o
-[ 34%] Linking CXX executable sihopt-info
-[ 34%] Built target sihopt-info
+[  2%] Building CXX object CMakeFiles/markov_cero_core.dir/src/foundation/build_info.cpp.o
+[  4%] Building CXX object CMakeFiles/markov_cero_core.dir/src/model/model.cpp.o
+[  7%] Building CXX object CMakeFiles/markov_cero_core.dir/src/io/mps.cpp.o
+[  9%] Building CXX object CMakeFiles/markov_cero_core.dir/src/verify/primal_verifier.cpp.o
+[ 12%] Building CXX object CMakeFiles/markov_cero_core.dir/src/linalg/dense_lu.cpp.o
+[ 14%] Building CXX object CMakeFiles/markov_cero_core.dir/src/linalg/sparse_basis.cpp.o
+[ 17%] Building CXX object CMakeFiles/markov_cero_core.dir/src/transform/canonicalize.cpp.o
+[ 19%] Building CXX object CMakeFiles/markov_cero_core.dir/src/lp/reference/revised_simplex.cpp.o
+[ 21%] Building CXX object CMakeFiles/markov_cero_core.dir/src/verify/reference_lp_verifier.cpp.o
+[ 24%] Building CXX object CMakeFiles/markov_cero_core.dir/src/lp/dual/dual_simplex.cpp.o
+[ 26%] Linking CXX static library libmarkov_cero_core.a
+[ 26%] Built target markov_cero_core
+[ 29%] Building CXX object CMakeFiles/markov-cero-mps-inspect.dir/apps/markov_cero_mps_inspect.cpp.o
+[ 31%] Building CXX object CMakeFiles/markov-cero-info.dir/apps/markov_cero_info.cpp.o
+[ 34%] Linking CXX executable markov-cero-info
+[ 34%] Built target markov-cero-info
 [ 36%] Building CXX object CMakeFiles/foundation_test.dir/tests/foundation_test.cpp.o
-[ 39%] Linking CXX executable sihopt-mps-inspect
+[ 39%] Linking CXX executable markov-cero-mps-inspect
 [ 41%] Linking CXX executable foundation_test
-[ 41%] Built target sihopt-mps-inspect
+[ 41%] Built target markov-cero-mps-inspect
 [ 43%] Building CXX object CMakeFiles/m1_test.dir/tests/m1_test.cpp.o
 [ 43%] Built target foundation_test
 [ 46%] Building CXX object CMakeFiles/m1_edge_test.dir/tests/m1_edge_test.cpp.o
@@ -108,25 +108,25 @@ Total Test time (real) =   0.20 sec
 -- Configuring done (0.2s)
 -- Generating done (0.0s)
 -- Build files have been written to: /home/saikrishna/markov-initial-build/_m5-deploy-gxx-sanitize
-[  4%] Building CXX object CMakeFiles/sihopt_core.dir/src/foundation/build_info.cpp.o
-[  4%] Building CXX object CMakeFiles/sihopt_core.dir/src/model/model.cpp.o
-[  7%] Building CXX object CMakeFiles/sihopt_core.dir/src/io/mps.cpp.o
-[  9%] Building CXX object CMakeFiles/sihopt_core.dir/src/verify/primal_verifier.cpp.o
-[ 12%] Building CXX object CMakeFiles/sihopt_core.dir/src/linalg/dense_lu.cpp.o
-[ 14%] Building CXX object CMakeFiles/sihopt_core.dir/src/linalg/sparse_basis.cpp.o
-[ 17%] Building CXX object CMakeFiles/sihopt_core.dir/src/transform/canonicalize.cpp.o
-[ 19%] Building CXX object CMakeFiles/sihopt_core.dir/src/lp/reference/revised_simplex.cpp.o
-[ 21%] Building CXX object CMakeFiles/sihopt_core.dir/src/verify/reference_lp_verifier.cpp.o
-[ 24%] Building CXX object CMakeFiles/sihopt_core.dir/src/lp/dual/dual_simplex.cpp.o
-[ 26%] Linking CXX static library libsihopt_core.a
-[ 26%] Built target sihopt_core
-[ 29%] Building CXX object CMakeFiles/sihopt-mps-inspect.dir/apps/sihopt_mps_inspect.cpp.o
-[ 31%] Building CXX object CMakeFiles/sihopt-info.dir/apps/sihopt_info.cpp.o
-[ 34%] Linking CXX executable sihopt-info
-[ 34%] Built target sihopt-info
+[  4%] Building CXX object CMakeFiles/markov_cero_core.dir/src/foundation/build_info.cpp.o
+[  4%] Building CXX object CMakeFiles/markov_cero_core.dir/src/model/model.cpp.o
+[  7%] Building CXX object CMakeFiles/markov_cero_core.dir/src/io/mps.cpp.o
+[  9%] Building CXX object CMakeFiles/markov_cero_core.dir/src/verify/primal_verifier.cpp.o
+[ 12%] Building CXX object CMakeFiles/markov_cero_core.dir/src/linalg/dense_lu.cpp.o
+[ 14%] Building CXX object CMakeFiles/markov_cero_core.dir/src/linalg/sparse_basis.cpp.o
+[ 17%] Building CXX object CMakeFiles/markov_cero_core.dir/src/transform/canonicalize.cpp.o
+[ 19%] Building CXX object CMakeFiles/markov_cero_core.dir/src/lp/reference/revised_simplex.cpp.o
+[ 21%] Building CXX object CMakeFiles/markov_cero_core.dir/src/verify/reference_lp_verifier.cpp.o
+[ 24%] Building CXX object CMakeFiles/markov_cero_core.dir/src/lp/dual/dual_simplex.cpp.o
+[ 26%] Linking CXX static library libmarkov_cero_core.a
+[ 26%] Built target markov_cero_core
+[ 29%] Building CXX object CMakeFiles/markov-cero-mps-inspect.dir/apps/markov_cero_mps_inspect.cpp.o
+[ 31%] Building CXX object CMakeFiles/markov-cero-info.dir/apps/markov_cero_info.cpp.o
+[ 34%] Linking CXX executable markov-cero-info
+[ 34%] Built target markov-cero-info
 [ 36%] Building CXX object CMakeFiles/foundation_test.dir/tests/foundation_test.cpp.o
-[ 39%] Linking CXX executable sihopt-mps-inspect
-[ 39%] Built target sihopt-mps-inspect
+[ 39%] Linking CXX executable markov-cero-mps-inspect
+[ 39%] Built target markov-cero-mps-inspect
 [ 41%] Linking CXX executable foundation_test
 [ 43%] Building CXX object CMakeFiles/m1_test.dir/tests/m1_test.cpp.o
 [ 43%] Built target foundation_test
@@ -209,25 +209,25 @@ Total Test time (real) =   3.51 sec
 -- Configuring done (0.2s)
 -- Generating done (0.0s)
 -- Build files have been written to: /home/saikrishna/markov-initial-build/_m5-deploy-clangxx
-[  4%] Building CXX object CMakeFiles/sihopt_core.dir/src/model/model.cpp.o
-[  4%] Building CXX object CMakeFiles/sihopt_core.dir/src/foundation/build_info.cpp.o
-[  7%] Building CXX object CMakeFiles/sihopt_core.dir/src/io/mps.cpp.o
-[  9%] Building CXX object CMakeFiles/sihopt_core.dir/src/verify/primal_verifier.cpp.o
-[ 12%] Building CXX object CMakeFiles/sihopt_core.dir/src/linalg/dense_lu.cpp.o
-[ 14%] Building CXX object CMakeFiles/sihopt_core.dir/src/linalg/sparse_basis.cpp.o
-[ 17%] Building CXX object CMakeFiles/sihopt_core.dir/src/transform/canonicalize.cpp.o
-[ 19%] Building CXX object CMakeFiles/sihopt_core.dir/src/lp/reference/revised_simplex.cpp.o
-[ 21%] Building CXX object CMakeFiles/sihopt_core.dir/src/verify/reference_lp_verifier.cpp.o
-[ 24%] Building CXX object CMakeFiles/sihopt_core.dir/src/lp/dual/dual_simplex.cpp.o
-[ 26%] Linking CXX static library libsihopt_core.a
-[ 26%] Built target sihopt_core
-[ 29%] Building CXX object CMakeFiles/sihopt-mps-inspect.dir/apps/sihopt_mps_inspect.cpp.o
-[ 31%] Building CXX object CMakeFiles/sihopt-info.dir/apps/sihopt_info.cpp.o
-[ 34%] Linking CXX executable sihopt-info
-[ 34%] Built target sihopt-info
+[  4%] Building CXX object CMakeFiles/markov_cero_core.dir/src/model/model.cpp.o
+[  4%] Building CXX object CMakeFiles/markov_cero_core.dir/src/foundation/build_info.cpp.o
+[  7%] Building CXX object CMakeFiles/markov_cero_core.dir/src/io/mps.cpp.o
+[  9%] Building CXX object CMakeFiles/markov_cero_core.dir/src/verify/primal_verifier.cpp.o
+[ 12%] Building CXX object CMakeFiles/markov_cero_core.dir/src/linalg/dense_lu.cpp.o
+[ 14%] Building CXX object CMakeFiles/markov_cero_core.dir/src/linalg/sparse_basis.cpp.o
+[ 17%] Building CXX object CMakeFiles/markov_cero_core.dir/src/transform/canonicalize.cpp.o
+[ 19%] Building CXX object CMakeFiles/markov_cero_core.dir/src/lp/reference/revised_simplex.cpp.o
+[ 21%] Building CXX object CMakeFiles/markov_cero_core.dir/src/verify/reference_lp_verifier.cpp.o
+[ 24%] Building CXX object CMakeFiles/markov_cero_core.dir/src/lp/dual/dual_simplex.cpp.o
+[ 26%] Linking CXX static library libmarkov_cero_core.a
+[ 26%] Built target markov_cero_core
+[ 29%] Building CXX object CMakeFiles/markov-cero-mps-inspect.dir/apps/markov_cero_mps_inspect.cpp.o
+[ 31%] Building CXX object CMakeFiles/markov-cero-info.dir/apps/markov_cero_info.cpp.o
+[ 34%] Linking CXX executable markov-cero-info
+[ 34%] Built target markov-cero-info
 [ 36%] Building CXX object CMakeFiles/foundation_test.dir/tests/foundation_test.cpp.o
-[ 39%] Linking CXX executable sihopt-mps-inspect
-[ 39%] Built target sihopt-mps-inspect
+[ 39%] Linking CXX executable markov-cero-mps-inspect
+[ 39%] Built target markov-cero-mps-inspect
 [ 41%] Linking CXX executable foundation_test
 [ 43%] Building CXX object CMakeFiles/m1_test.dir/tests/m1_test.cpp.o
 [ 43%] Built target foundation_test
@@ -310,25 +310,25 @@ Total Test time (real) =   0.26 sec
 -- Configuring done (0.3s)
 -- Generating done (0.0s)
 -- Build files have been written to: /home/saikrishna/markov-initial-build/_m5-deploy-clangxx-sanitize
-[  4%] Building CXX object CMakeFiles/sihopt_core.dir/src/model/model.cpp.o
-[  4%] Building CXX object CMakeFiles/sihopt_core.dir/src/foundation/build_info.cpp.o
-[  7%] Building CXX object CMakeFiles/sihopt_core.dir/src/io/mps.cpp.o
-[  9%] Building CXX object CMakeFiles/sihopt_core.dir/src/verify/primal_verifier.cpp.o
-[ 12%] Building CXX object CMakeFiles/sihopt_core.dir/src/linalg/dense_lu.cpp.o
-[ 14%] Building CXX object CMakeFiles/sihopt_core.dir/src/linalg/sparse_basis.cpp.o
-[ 17%] Building CXX object CMakeFiles/sihopt_core.dir/src/transform/canonicalize.cpp.o
-[ 19%] Building CXX object CMakeFiles/sihopt_core.dir/src/lp/reference/revised_simplex.cpp.o
-[ 21%] Building CXX object CMakeFiles/sihopt_core.dir/src/verify/reference_lp_verifier.cpp.o
-[ 24%] Building CXX object CMakeFiles/sihopt_core.dir/src/lp/dual/dual_simplex.cpp.o
-[ 26%] Linking CXX static library libsihopt_core.a
-[ 26%] Built target sihopt_core
-[ 31%] Building CXX object CMakeFiles/sihopt-info.dir/apps/sihopt_info.cpp.o
-[ 31%] Building CXX object CMakeFiles/sihopt-mps-inspect.dir/apps/sihopt_mps_inspect.cpp.o
-[ 34%] Linking CXX executable sihopt-info
-[ 36%] Linking CXX executable sihopt-mps-inspect
-[ 36%] Built target sihopt-info
+[  4%] Building CXX object CMakeFiles/markov_cero_core.dir/src/model/model.cpp.o
+[  4%] Building CXX object CMakeFiles/markov_cero_core.dir/src/foundation/build_info.cpp.o
+[  7%] Building CXX object CMakeFiles/markov_cero_core.dir/src/io/mps.cpp.o
+[  9%] Building CXX object CMakeFiles/markov_cero_core.dir/src/verify/primal_verifier.cpp.o
+[ 12%] Building CXX object CMakeFiles/markov_cero_core.dir/src/linalg/dense_lu.cpp.o
+[ 14%] Building CXX object CMakeFiles/markov_cero_core.dir/src/linalg/sparse_basis.cpp.o
+[ 17%] Building CXX object CMakeFiles/markov_cero_core.dir/src/transform/canonicalize.cpp.o
+[ 19%] Building CXX object CMakeFiles/markov_cero_core.dir/src/lp/reference/revised_simplex.cpp.o
+[ 21%] Building CXX object CMakeFiles/markov_cero_core.dir/src/verify/reference_lp_verifier.cpp.o
+[ 24%] Building CXX object CMakeFiles/markov_cero_core.dir/src/lp/dual/dual_simplex.cpp.o
+[ 26%] Linking CXX static library libmarkov_cero_core.a
+[ 26%] Built target markov_cero_core
+[ 31%] Building CXX object CMakeFiles/markov-cero-info.dir/apps/markov_cero_info.cpp.o
+[ 31%] Building CXX object CMakeFiles/markov-cero-mps-inspect.dir/apps/markov_cero_mps_inspect.cpp.o
+[ 34%] Linking CXX executable markov-cero-info
+[ 36%] Linking CXX executable markov-cero-mps-inspect
+[ 36%] Built target markov-cero-info
 [ 39%] Building CXX object CMakeFiles/foundation_test.dir/tests/foundation_test.cpp.o
-[ 39%] Built target sihopt-mps-inspect
+[ 39%] Built target markov-cero-mps-inspect
 [ 41%] Building CXX object CMakeFiles/m1_test.dir/tests/m1_test.cpp.o
 [ 43%] Linking CXX executable foundation_test
 [ 43%] Built target foundation_test
@@ -411,26 +411,26 @@ Total Test time (real) =   3.17 sec
 -- Configuring done (0.2s)
 -- Generating done (0.0s)
 -- Build files have been written to: /home/saikrishna/markov-initial-build/_m5-deploy-fuzz
-[  4%] Building CXX object CMakeFiles/sihopt_core.dir/src/foundation/build_info.cpp.o
-[  4%] Building CXX object CMakeFiles/sihopt_core.dir/src/model/model.cpp.o
-[  6%] Building CXX object CMakeFiles/sihopt_core.dir/src/io/mps.cpp.o
-[  8%] Building CXX object CMakeFiles/sihopt_core.dir/src/verify/primal_verifier.cpp.o
-[ 11%] Building CXX object CMakeFiles/sihopt_core.dir/src/linalg/dense_lu.cpp.o
-[ 13%] Building CXX object CMakeFiles/sihopt_core.dir/src/linalg/sparse_basis.cpp.o
-[ 15%] Building CXX object CMakeFiles/sihopt_core.dir/src/transform/canonicalize.cpp.o
-[ 17%] Building CXX object CMakeFiles/sihopt_core.dir/src/lp/reference/revised_simplex.cpp.o
-[ 20%] Building CXX object CMakeFiles/sihopt_core.dir/src/verify/reference_lp_verifier.cpp.o
-[ 22%] Building CXX object CMakeFiles/sihopt_core.dir/src/lp/dual/dual_simplex.cpp.o
-[ 24%] Linking CXX static library libsihopt_core.a
-[ 24%] Built target sihopt_core
-[ 26%] Building CXX object CMakeFiles/sihopt-info.dir/apps/sihopt_info.cpp.o
-[ 28%] Building CXX object CMakeFiles/sihopt-mps-inspect.dir/apps/sihopt_mps_inspect.cpp.o
-[ 31%] Linking CXX executable sihopt-info
-[ 31%] Built target sihopt-info
+[  4%] Building CXX object CMakeFiles/markov_cero_core.dir/src/foundation/build_info.cpp.o
+[  4%] Building CXX object CMakeFiles/markov_cero_core.dir/src/model/model.cpp.o
+[  6%] Building CXX object CMakeFiles/markov_cero_core.dir/src/io/mps.cpp.o
+[  8%] Building CXX object CMakeFiles/markov_cero_core.dir/src/verify/primal_verifier.cpp.o
+[ 11%] Building CXX object CMakeFiles/markov_cero_core.dir/src/linalg/dense_lu.cpp.o
+[ 13%] Building CXX object CMakeFiles/markov_cero_core.dir/src/linalg/sparse_basis.cpp.o
+[ 15%] Building CXX object CMakeFiles/markov_cero_core.dir/src/transform/canonicalize.cpp.o
+[ 17%] Building CXX object CMakeFiles/markov_cero_core.dir/src/lp/reference/revised_simplex.cpp.o
+[ 20%] Building CXX object CMakeFiles/markov_cero_core.dir/src/verify/reference_lp_verifier.cpp.o
+[ 22%] Building CXX object CMakeFiles/markov_cero_core.dir/src/lp/dual/dual_simplex.cpp.o
+[ 24%] Linking CXX static library libmarkov_cero_core.a
+[ 24%] Built target markov_cero_core
+[ 26%] Building CXX object CMakeFiles/markov-cero-info.dir/apps/markov_cero_info.cpp.o
+[ 28%] Building CXX object CMakeFiles/markov-cero-mps-inspect.dir/apps/markov_cero_mps_inspect.cpp.o
+[ 31%] Linking CXX executable markov-cero-info
+[ 31%] Built target markov-cero-info
 [ 33%] Building CXX object CMakeFiles/foundation_test.dir/tests/foundation_test.cpp.o
-[ 35%] Linking CXX executable sihopt-mps-inspect
+[ 35%] Linking CXX executable markov-cero-mps-inspect
 [ 37%] Linking CXX executable foundation_test
-[ 37%] Built target sihopt-mps-inspect
+[ 37%] Built target markov-cero-mps-inspect
 [ 40%] Building CXX object CMakeFiles/m1_test.dir/tests/m1_test.cpp.o
 [ 40%] Built target foundation_test
 [ 42%] Building CXX object CMakeFiles/m1_edge_test.dir/tests/m1_edge_test.cpp.o
@@ -563,7 +563,7 @@ INFO: seed corpus: files: 3 min: 5b max: 603b total: 623b rss: 33Mb
 #2036	REDUCE cov: 92 ft: 286 corp: 33/3808b lim: 603 exec/s: 0 rss: 66Mb L: 27/602 MS: 2 ShuffleBytes-EraseBytes-
 #2267	REDUCE cov: 92 ft: 286 corp: 33/3784b lim: 603 exec/s: 0 rss: 70Mb L: 28/602 MS: 1 EraseBytes-
 #2415	REDUCE cov: 92 ft: 286 corp: 33/3783b lim: 603 exec/s: 0 rss: 72Mb L: 5/602 MS: 3 CMP-EraseBytes-EraseBytes- DE: "\000\000"-
-	NEW_FUNC[1/1]: 0x55ff0593b5d0 in sihopt::linalg::SparseCsc::~SparseCsc() /home/saikrishna/markov-initial-build/include/sihopt/linalg/sparse_basis.hpp:6
+	NEW_FUNC[1/1]: 0x55ff0593b5d0 in markov_cero::linalg::SparseCsc::~SparseCsc() /home/saikrishna/markov-initial-build/include/markov_cero/linalg/sparse_basis.hpp:6
 #2451	NEW    cov: 101 ft: 303 corp: 34/3795b lim: 603 exec/s: 2451 rss: 73Mb L: 12/602 MS: 1 ChangeBinInt-
 #2810	REDUCE cov: 101 ft: 303 corp: 34/3607b lim: 603 exec/s: 2810 rss: 77Mb L: 236/602 MS: 2 ShuffleBytes-EraseBytes-
 #2946	REDUCE cov: 101 ft: 303 corp: 34/3606b lim: 603 exec/s: 2946 rss: 79Mb L: 26/602 MS: 1 EraseBytes-

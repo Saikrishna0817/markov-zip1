@@ -1,8 +1,8 @@
-#include "sihopt/linalg/sparse_basis.hpp"
-#include "sihopt/lp/reference/revised_simplex.hpp"
-#include "sihopt/verify/reference_lp_verifier.hpp"
+#include "markov_cero/linalg/sparse_basis.hpp"
+#include "markov_cero/lp/reference/revised_simplex.hpp"
+#include "markov_cero/verify/reference_lp_verifier.hpp"
 #include <stdexcept>
-using namespace sihopt;
+using namespace markov_cero;
 static void req(bool v,const char*m){if(!v)throw std::runtime_error(m);}
 static transform::CanonicalModel make_model(std::size_t r,std::size_t c,std::vector<double>a,std::vector<double>b,std::vector<double>cost){transform::CanonicalModel m;m.matrix={r,c,std::move(a)};m.rhs=std::move(b);m.objective=std::move(cost);m.record.objective_sign=1;m.record.structural_variables=c;m.record.variables.resize(c);for(std::size_t j=0;j<c;++j){m.record.variables[j].canonical_index={j};m.record.variables[j].multiplier={1};}m.validate();return m;}
 int main(){auto a=make_model(1,2,{1e-12,1},{1},{-5e-10,0});lp::reference::Result f;f.status=lp::reference::SolveStatus::optimal;f.primal={0,1};f.dual={0};req(!verify::verify_reference_result(a,f).accepted,"false optimal certified");req(lp::reference::solve(a).status!=lp::reference::SolveStatus::optimal,"false optimal returned");auto b=make_model(1,1,{1e-12},{1},{0});f={};f.status=lp::reference::SolveStatus::infeasible;f.certificate={2};req(!verify::verify_reference_result(b,f).accepted,"false infeasible certified");req(lp::reference::solve(b).status!=lp::reference::SolveStatus::infeasible,"false infeasible returned");linalg::SparseBasisOptions o;o.maximum_nonzeros=2;o.maximum_updates=1;o.eta_density_trigger=1;std::vector<std::vector<double>>cols(2,std::vector<double>(2));cols[0][0]=1;cols[1][1]=1;auto sf=linalg::SparseBasisFactorization::factorize(linalg::SparseCsc::from_columns(2,cols),o);try{sf.replace_column(0,{1,1});}catch(const std::length_error&){}auto x=sf.solve({1,0});req(x[0]==1&&x[1]==0&&sf.statistics().current_update_chain==0,"failed update corrupted state");return 0;}

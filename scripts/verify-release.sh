@@ -7,7 +7,7 @@ ENVJSON="$ROOT/evidence/environment-local.json"
 : > "$REPORT"
 log() { printf '%s\n' "$*" | tee -a "$REPORT"; }
 run() { log "+ $*"; "$@" >>"$REPORT" 2>&1; }
-log "SIHOpt cumulative M5 local verification"
+log "markov-cero cumulative M5 local verification"
 log "UTC: $(date -u +%Y-%m-%dT%H:%M:%SZ)"
 python3 - "$ENVJSON" <<'PY'
 import json, platform, sys
@@ -66,8 +66,8 @@ for pair in "gcc:g++" "clang:clang++"; do
     run "$ROOT/_verify-$name/m5_property_test"
     run "$compiler" -std=c++20 -Wall -Wextra -Wpedantic -Werror -Iinclude tests/m5_audit_regression_test.cpp $objects -o "$ROOT/_verify-$name/m5_audit_regression_test"
     run "$ROOT/_verify-$name/m5_audit_regression_test"
-    run "$compiler" -std=c++20 -Wall -Wextra -Wpedantic -Werror -Iinclude apps/sihopt_mps_inspect.cpp $objects -o "$ROOT/_verify-$name/sihopt-mps-inspect"
-    run "$ROOT/_verify-$name/sihopt-mps-inspect" examples/blend.mps
+    run "$compiler" -std=c++20 -Wall -Wextra -Wpedantic -Werror -Iinclude apps/markov_cero_mps_inspect.cpp $objects -o "$ROOT/_verify-$name/markov-cero-mps-inspect"
+    run "$ROOT/_verify-$name/markov-cero-mps-inspect" examples/blend.mps
   fi
 done
 if [[ $blocked -eq 0 ]]; then

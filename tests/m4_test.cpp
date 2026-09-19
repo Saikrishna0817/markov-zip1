@@ -1,10 +1,10 @@
-#include "sihopt/lp/dual/dual_simplex.hpp"
-#include "sihopt/verify/reference_lp_verifier.hpp"
+#include "markov_cero/lp/dual/dual_simplex.hpp"
+#include "markov_cero/verify/reference_lp_verifier.hpp"
 #include <cmath>
 #include <iostream>
 #include <limits>
 #include <stdexcept>
-using namespace sihopt;
+using namespace markov_cero;
 namespace {void req(bool q,const char*m){if(!q)throw std::runtime_error(m);}transform::CanonicalModel make_model(double lo,double up){transform::CanonicalModel m;m.matrix={2,3,{-1,1,0,1,0,1}};m.rhs={-lo,up};m.objective={1,0,0};m.record.objective_sign=1;m.record.structural_variables=1;m.record.variables.resize(1);m.record.variables[0].canonical_index={0};m.record.variables[0].multiplier={1};m.validate();return m;}}
 int main(){auto base=make_model(0,10);auto cold=lp::dual::solve(base);req(cold.used_cold_fallback,"cold bootstrap");req(cold.solution.status==lp::reference::SolveStatus::optimal,"cold optimal");req(verify::verify_reference_result(base,cold.solution).accepted,"cold verified");req(cold.basis_state.basic_variables.size()==2,"cold basis");auto text=lp::dual::serialize_basis(cold.basis_state);auto parsed=lp::dual::parse_basis(text);req(parsed.basic_variables==cold.basis_state.basic_variables,"basis round trip");
  auto hot_model=make_model(3,10);auto hot=lp::dual::solve(hot_model,{},parsed);req(hot.used_warm_start&&!hot.used_cold_fallback,"warm path");req(hot.solution.status==lp::reference::SolveStatus::optimal,"warm optimal");req(std::abs(hot.solution.objective-3)<1e-9,"warm objective");req(verify::verify_reference_result(hot_model,hot.solution).accepted,"warm verified");req(!hot.telemetry.empty(),"dual pivot telemetry");auto ref=lp::reference::solve(hot_model);req(ref.status==hot.solution.status&&std::abs(ref.objective-hot.solution.objective)<1e-9,"warm cold parity");

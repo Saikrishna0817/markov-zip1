@@ -1,9 +1,9 @@
-#include "sihopt/linalg/sparse_basis.hpp"
+#include "markov_cero/linalg/sparse_basis.hpp"
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
 #include <vector>
-using namespace sihopt::linalg;
+using namespace markov_cero::linalg;
 extern "C" int LLVMFuzzerTestOneInput(const std::uint8_t* data, std::size_t size) {
     if (size < 2)
         return 0;

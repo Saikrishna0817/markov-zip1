@@ -1,4 +1,4 @@
-SIHOpt M1 deployment-toolchain blocker report
+markov-cero M1 deployment-toolchain blocker report
 UTC: 2026-09-13T12:39:24Z
 Required target: Omarchy deployment machine with CMake, GCC 16.2.1, Clang 22.1.8, Python 3.14.7.
 Current sandbox: no cmake or clang++; package installation requires root and repository DNS is unavailable.

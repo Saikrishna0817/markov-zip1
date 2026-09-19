@@ -1,5 +1,5 @@
-#include "sihopt/foundation/build_info.hpp"
-namespace sihopt::foundation {
+#include "markov_cero/foundation/build_info.hpp"
+namespace markov_cero::foundation {
 static_assert(version() == "0.5.1");
 static_assert(milestone() == "M5");
 static_assert(contains_solver_algorithms());

@@ -1,4 +1,4 @@
-#include "sihopt/io/mps.hpp"
+#include "markov_cero/io/mps.hpp"
 
 #include <algorithm>
 #include <cctype>
@@ -9,7 +9,7 @@
 #include <utility>
 #include <vector>
 
-namespace sihopt::io {
+namespace markov_cero::io {
 namespace {
 enum class Section { none, objective_sense, objective_name, rows, columns, rhs, ranges, bounds, end };
 struct Row { char type; std::string name; double rhs{0.0}; bool has_rhs{false}; double range{0.0}; bool has_range{false}; };
@@ -68,9 +68,11 @@ model::Model parse_mps(std::istream& input, const MpsLimits& limits) {
         if (line.empty() || line.front() == '*') continue;
         const auto fields = tokens(line); if (fields.empty()) continue; const std::string first = fields.front();
         if (saw_end) throw MpsError(line_number, "content after ENDATA");
-        if (header(first)) {
+        const bool starts_in_col1 = (!raw.empty() && raw.front() != ' ' && raw.front() != '\t');
+        if (starts_in_col1) {
+            if (!header(first)) throw MpsError(line_number, "unknown section: " + first);
             if (first != "NAME" && fields.size() != 1U) throw MpsError(line_number, "section header takes no values");
-            if (first == "NAME") { section = Section::none; if (fields.size() > 2U) throw MpsError(line_number, "NAME accepts at most one value"); if (fields.size() == 2U) { require_name(fields[1]); problem_name = fields[1]; } }
+            if (first == "NAME") { section = Section::none; if (fields.size() >= 2U) { require_name(fields[1]); problem_name = fields[1]; } }
             else if (first == "OBJSENSE") section = Section::objective_sense;
             else if (first == "OBJNAME") section = Section::objective_name;
             else if (first == "ROWS") section = Section::rows;
@@ -78,7 +80,7 @@ model::Model parse_mps(std::istream& input, const MpsLimits& limits) {
             else if (first == "RHS") section = Section::rhs;
             else if (first == "RANGES") section = Section::ranges;
             else if (first == "BOUNDS") section = Section::bounds;
-            else { if (fields.size() != 1U) throw MpsError(line_number, "ENDATA takes no values"); section = Section::end; saw_end = true; }
+            else { section = Section::end; saw_end = true; }
             continue;
         }
         if (section == Section::objective_sense) {
@@ -112,10 +114,31 @@ model::Model parse_mps(std::istream& input, const MpsLimits& limits) {
             } continue;
         }
         if (section == Section::rhs || section == Section::ranges) {
-            if (fields.size() != 3U && fields.size() != 5U) throw MpsError(line_number, "RHS/RANGES record requires vector and row/value pairs");
-            auto& selected = section == Section::rhs ? rhs_vector : range_vector; if (selected.empty()) selected = fields[0]; else if (selected != fields[0]) throw MpsError(line_number, "multiple rim vectors are unsupported");
-            for (std::size_t p = 1U; p < fields.size(); p += 2U) { const auto row = find_row(fields[p]); if (rows[row].type == 'N') { throw MpsError(line_number, "objective-row RHS/RANGES values are unsupported"); }
-                const double value = number(fields[p + 1U], line_number); if (section == Section::rhs) { if (rows[row].has_rhs) throw MpsError(line_number, "duplicate RHS row"); rows[row].rhs = value; rows[row].has_rhs = true; } else { if (rows[row].has_range) throw MpsError(line_number, "duplicate RANGES row"); rows[row].range = value; rows[row].has_range = true; } }
+            std::size_t start_p = 1U;
+            if (fields.size() == 2U || fields.size() == 4U) {
+                start_p = 0U;
+            } else if (fields.size() != 3U && fields.size() != 5U) {
+                throw MpsError(line_number, "RHS/RANGES record requires vector and row/value pairs");
+            }
+            if (start_p == 1U) {
+                auto& selected = section == Section::rhs ? rhs_vector : range_vector;
+                if (selected.empty()) selected = fields[0];
+                else if (selected != fields[0]) throw MpsError(line_number, "multiple rim vectors are unsupported");
+            }
+            for (std::size_t p = start_p; p < fields.size(); p += 2U) {
+                const auto row = find_row(fields[p]);
+                if (rows[row].type == 'N') { throw MpsError(line_number, "objective-row RHS/RANGES values are unsupported"); }
+                const double value = number(fields[p + 1U], line_number);
+                if (section == Section::rhs) {
+                    if (rows[row].has_rhs) throw MpsError(line_number, "duplicate RHS row");
+                    rows[row].rhs = value;
+                    rows[row].has_rhs = true;
+                } else {
+                    if (rows[row].has_range) throw MpsError(line_number, "duplicate RANGES row");
+                    rows[row].range = value;
+                    rows[row].has_range = true;
+                }
+            }
             continue;
         }
         if (section == Section::bounds) {

@@ -1,10 +1,10 @@
-#include "sihopt/verify/primal_verifier.hpp"
+#include "markov_cero/verify/primal_verifier.hpp"
 
 #include <algorithm>
 #include <cmath>
 #include <stdexcept>
 
-namespace sihopt::verify {
+namespace markov_cero::verify {
 namespace {
 double allowance(double actual, double expected, const Tolerance& tolerance) {
     const double value=tolerance.absolute+tolerance.relative*std::max({1.0,std::abs(actual),std::abs(expected)}); if(!std::isfinite(value)) throw std::invalid_argument("tolerance allowance overflow"); return value;

@@ -44,7 +44,7 @@
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Debug",
         "CMAKE_CXX_COMPILER": "g++",
-        "SIHOPT_ENABLE_ASAN_UBSAN": "ON"
+        "MARKOV_CERO_ENABLE_ASAN_UBSAN": "ON"
       }
     }
   ]

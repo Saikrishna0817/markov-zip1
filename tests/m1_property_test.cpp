@@ -1,5 +1,5 @@
-#include "sihopt/model/model.hpp"
-#include "sihopt/verify/primal_verifier.hpp"
+#include "markov_cero/model/model.hpp"
+#include "markov_cero/verify/primal_verifier.hpp"
 #include <cmath>
 #include <random>
 #include <stdexcept>
@@ -11,7 +11,7 @@ int main() {
     std::uniform_real_distribution<double> coefficient(-5.0, 5.0), value(-3.0, 3.0);
     for (int trial = 0; trial < 250; ++trial) {
         constexpr std::size_t rows = 7, columns = 5;
-        sihopt::model::SparseMatrixBuilder builder(rows, columns);
+        markov_cero::model::SparseMatrixBuilder builder(rows, columns);
         std::vector<std::vector<long double>> dense(rows, std::vector<long double>(columns));
         for (std::size_t column = 0; column < columns; ++column) for (std::size_t row = 0; row < rows; ++row) {
             if ((random() & 3U) == 0U) continue;

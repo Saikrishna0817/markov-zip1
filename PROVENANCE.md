@@ -1,6 +1,6 @@
 # Clean-room provenance
 
-- Baseline: empty original repository created for SIHOpt M0 on 2026-09-13.
+- Baseline: empty original repository created for markov-cero M0 on 2026-09-13.
 - Implementation role: independent clean-room session.
 - External solver source inspected during implementation: **none**.
 - Inputs admitted: approved project requirements, mathematical statements independently written in the governing Notion pages, public bibliographic metadata, and sanitized behavior-level competitor observations.
