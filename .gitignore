@@ -1,0 +1,41 @@
+# Local CMake / compiler trees
+_m5-*/
+build/
+cmake-build-*/
+_verify-*/
+CMakeCache.txt
+CMakeFiles/
+cmake_install.cmake
+Makefile
+compile_commands.json
+CTestTestfile.cmake
+Testing/
+
+# Compiled artifacts
+*.o
+*.a
+*.so
+*.so.*
+*.dylib
+*.exe
+*.out
+
+# Sanitizer / fuzz noise
+*.sancov
+crash-*
+leak-*
+timeout-*
+oom-*
+default.profraw
+default.profdata
+.cache/
+
+# Python
+__pycache__/
+*.pyc
+
+# Editor
+*~
+*.swp
+.vscode/
+.idea/

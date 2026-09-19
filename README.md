@@ -1,10 +1,33 @@
-# SIHOpt M1 Model, Parser, and Verifier
+# SIHOpt
 
-Clean-room foundation for SIH 2026 problem SIH26119.
+Clean-room C++20 solver core for SIH 2026 problem SIH26119 (MRPL indigenous LP/MILP/QP).
+
+Current release: **v0.5.1**, milestone **M5** (release candidate). Continuous LP is implemented and independently verified. GPU, MILP, QP, and presolve remain planned and must not be claimed.
 
 ## Scope
 
-This `v0.1.0` cumulatively contains M0 governance plus an immutable model, strict MPS subset, validated CSC storage, independent primal verifier, inspection CLI, Python-facing inspection path, tests, and a fuzz target. It still contains no optimization algorithm.
+- Immutable model, strict free-format MPS subset, CSC storage
+- Reversible canonicalization to standard form
+- Certified primal revised simplex (M3) and dual warm path (M4) on a sparse basis substrate (M5)
+- Independent canonical witness checks and original-model primal verification
+- `sihopt-info`, `sihopt-mps-inspect`, and `sihopt-solve`
+
+Not in this prototype: CUDA/GPU acceleration, PDHG/PDLP, MILP, convex QP, production presolve.
+
+## Solve a model
+
+```sh
+cmake -S . -B build -DCMAKE_BUILD_TYPE=RelWithDebInfo
+cmake --build build -j
+./build/sihopt-solve examples/blend.mps
+./build/sihopt-solve examples/refinery/refinery-feasible.mps --output /tmp/result.json
+```
+
+Judge demo (offline):
+
+```sh
+bash run-qualification-demo.sh
+```
 
 ## Verify
 
@@ -12,13 +35,4 @@ This `v0.1.0` cumulatively contains M0 governance plus an immutable model, stric
 ./scripts/verify-release.sh
 ```
 
-The script verifies the internal manifest, detects the environment, configures and builds with available GCC and Clang compilers, runs CTest, validates JSON records, and writes `evidence/local-verification-report.txt`.
-
-## Deadline tracks
-
-- Submission prototype: gated M0→M2, narrow M3 only after prerequisites, then a verified crude-blending LP demo if approved.
-- Full production: M0→M14 without weakened gates after the 2026-09-23 submission deadline.
-
-See `KNOWN_FAILURES.md` and `docs/acceptance/M0-ACCEPTANCE.md` before relying on this archive.
-# markov-zip1
-# markov-zip1
+See `KNOWN_FAILURES.md`, `CAPABILITY-MATRIX.md`, and `QUICKSTART.md`.

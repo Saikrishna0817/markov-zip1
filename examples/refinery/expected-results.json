@@ -1,0 +1,10 @@
+{
+  "schema_version": "1.0.0",
+  "note": "Statuses only. Feasible objectives must be computed by sihopt-solve, never hard-coded into the demo.",
+  "cases": [
+    {"file": "refinery-feasible.mps", "status": "Optimal"},
+    {"file": "refinery-infeasible.mps", "status": "Infeasible"},
+    {"file": "refinery-malformed.mps", "status": "InvalidModel"},
+    {"file": "refinery-limited.mps", "status": "IterationLimit", "extra_args": ["--iteration-limit", "1"]}
+  ]
+}

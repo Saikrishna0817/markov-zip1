@@ -1,6 +1,7 @@
 # M5 acceptance record
 
-Status: **release candidate; final gate pending**.
+Status: **release candidate; qualification CLI in progress; M6 not authorized**.
+Current identity: version `0.5.1`, milestone M5. Solver algorithms exist; a user-facing `sihopt-solve` path is part of the qualification prototype. GPU/MILP/QP remain out of scope.
 
 M5 must provide canonical sparse basis storage, deterministic sparse LU, sparse and reach-restricted FTRAN/BTRAN, bounded product-form column updates, refactorization triggers, M4 warm-dual integration, cumulative verification, deployment-machine CMake/GCC/Clang builds, ASan/UBSan, coverage-guided fuzzing, and independent mathematical and source/security reviews.
 
@@ -13,9 +14,7 @@ M5 must provide canonical sparse basis storage, deterministic sparse LU, sparse 
 - 250 direct random sparse factorization cases, 2,400 accepted multi-update sequences with repeated FTRAN/BTRAN comparisons, row-pivot examples, malformed-input tests, cumulative M0-M4 regression, and local GCC ASan/UBSan passed.
 
 ## Blocking final acceptance
-- This runtime has GCC but no CMake, CTest, or Clang. Therefore the required CMake/GCC/Clang matrix and Clang libFuzzer coverage-guided run could not execute.
 - Isolated reviewer sessions did not share `/data/sihopt`; both reported repository-unavailable blockers and could not produce independent sign-off.
+- Evidence JSON may still name an older candidate commit until the qualification freeze regenerates it from HEAD.
 
-M5 must remain the active milestone. M6 is not authorized. Final M5 packaging and acceptance require running `scripts/m5-deployment-gate.sh` on an accessible deployment machine and completing both independent reviews against the exact candidate commit.
-
-Candidate source commit: `69fdee4a423227e1647646a451db324044e69b1c`.
+M5 remains the active milestone. M6 (presolve) is not authorized until the CPU-LP qualification prototype is frozen. Final packaging requires `scripts/m5-deployment-gate.sh` plus independent reviews of the exact freeze commit.

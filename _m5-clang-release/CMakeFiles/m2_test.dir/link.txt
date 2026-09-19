@@ -1,1 +1,0 @@
-/usr/bin/clang++ -O3 -DNDEBUG -Xlinker --dependency-file=CMakeFiles/m2_test.dir/link.d CMakeFiles/m2_test.dir/tests/m2_test.cpp.o -o m2_test  libsihopt_core.a

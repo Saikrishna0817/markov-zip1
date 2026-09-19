@@ -1,6 +1,6 @@
 # M4 acceptance record
 
-M4 must demonstrate a genuine dual pivot loop from a dual-feasible warm basis, exact dense steepest-edge or Bland pricing, conservative Harris ratio logic, strict basis validation/serialization, visible cold fallback, dense refactorization triggers, and independent status verification.
+M4 must demonstrate a genuine dual pivot loop from a dual-feasible warm basis, tableau-norm or Bland pricing, conservative Harris ratio logic, strict basis validation/serialization, visible cold fallback, dense refactorization triggers, and independent status verification. Conventional dual steepest-edge is not claimed.
 
 Gate: warm and cold status/objective parity; randomized RHS reoptimization; infeasible Farkas certificates; adversarial degeneracy and stale/singular/duplicate basis cases; bounded resources and telemetry; cumulative GCC, sanitizer, static analysis, fresh extraction, deterministic archive, and independent mathematical/security review.
 

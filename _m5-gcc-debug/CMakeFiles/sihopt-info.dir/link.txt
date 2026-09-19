@@ -1,1 +1,0 @@
-/usr/bin/g++ -g -Wl,--dependency-file=CMakeFiles/sihopt-info.dir/link.d "CMakeFiles/sihopt-info.dir/apps/sihopt_info.cpp.o" -o sihopt-info  libsihopt_core.a

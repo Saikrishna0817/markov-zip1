@@ -1,0 +1,8 @@
+
+ROWS
+ N  COST
+ L  R1
+COLUMNS
+   X R1 1
+ Y   COST 4
+ENDATA

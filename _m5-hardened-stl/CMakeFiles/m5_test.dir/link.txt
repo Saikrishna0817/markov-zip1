@@ -1,1 +1,0 @@
-/usr/bin/g++ -D_GLIBCXX_DEBUG -D_GLIBCXX_ASSERTIONS -g -Wl,--dependency-file=CMakeFiles/m5_test.dir/link.d CMakeFiles/m5_test.dir/tests/m5_test.cpp.o -o m5_test  libsihopt_core.a

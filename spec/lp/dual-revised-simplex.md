@@ -6,4 +6,4 @@ For basis B, compute `xB=B^-1 b`, `y=B^-T cB`, and reduced costs `r=c-A^T y`. Du
 
 The conservative Harris mode first computes a relaxed admissible bound using dual tolerance, then selects the largest safe pivot from the admissible window. Every candidate basis is refactorized, and a final independent verifier must accept any certified status. With no eligible entering column, `-B^-T e_p` is a Farkas certificate.
 
-Exact dense steepest-edge row norms are recomputed for leaving-row pricing. Bland mode is available for deterministic least-index selection. Dense refactorization occurs every iteration; M5 replaces this with sparse updates.
+Tableau-norm leaving-row weights `||A^T B^{-T} e_i||^2` are recomputed each iteration. This is not conventional dual steepest-edge `||B^{-T} e_i||^2`. Bland mode is available for deterministic least-index selection. M5 replaces per-iteration dense refactorization with sparse updates.

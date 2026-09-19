@@ -1,1 +1,0 @@
-/usr/bin/g++ -g -Wl,--dependency-file=CMakeFiles/m5_test.dir/link.d CMakeFiles/m5_test.dir/tests/m5_test.cpp.o -o m5_test  libsihopt_core.a

@@ -12,7 +12,10 @@ for path in sorted(root.rglob("*")):
         continue
     if ".git" in path.parts or "__pycache__" in path.parts:
         continue
-    if rel.startswith("build/") or any(part.startswith("_verify-") for part in path.relative_to(root).parts):
+    parts = path.relative_to(root).parts
+    if rel.startswith("build/") or any(part.startswith("_verify-") or part.startswith("_m5-") for part in parts):
+        continue
+    if parts[0] in {"cmake-build-debug", "cmake-build-release"}:
         continue
     if rel in {"evidence/local-verification-report.txt", "evidence/environment-local.json"}:
         continue

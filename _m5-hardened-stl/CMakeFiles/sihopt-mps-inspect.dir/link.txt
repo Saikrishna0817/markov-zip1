@@ -1,1 +1,0 @@
-/usr/bin/g++ -D_GLIBCXX_DEBUG -D_GLIBCXX_ASSERTIONS -g -Wl,--dependency-file=CMakeFiles/sihopt-mps-inspect.dir/link.d "CMakeFiles/sihopt-mps-inspect.dir/apps/sihopt_mps_inspect.cpp.o" -o sihopt-mps-inspect  libsihopt_core.a
