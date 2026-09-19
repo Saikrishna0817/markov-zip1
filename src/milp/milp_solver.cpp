@@ -5,6 +5,7 @@
 #include "markov_cero/milp/branch_node.hpp"
 #include "markov_cero/milp/cuts.hpp"
 #include "markov_cero/milp/heuristics.hpp"
+#include "markov_cero/milp/strong_branching.hpp"
 #include "markov_cero/transform/sparse_canonical_model.hpp"
 
 #include <algorithm>
@@ -181,7 +182,7 @@ Result solve(const model::Model& model, const Options& options) {
         }
     }
 
-    // 3. Generate Gomory Mixed-Integer Cuts at Root
+    // 3. Generate Gomory Mixed-Integer and MIR Cuts at Root
     std::optional<lp::dual::BasisState> current_basis = root_lp.basis;
     std::vector<double> current_primal = root_lp.primal;
     double current_obj = root_lp.objective;
@@ -189,7 +190,12 @@ Result solve(const model::Model& model, const Options& options) {
     if (options.enable_cuts && root_lp.basis.has_value()) {
         try {
             const auto canon = transform::sparse_canonicalize(root_model, /*relax_integrality=*/true);
-            const auto cuts = generate_gomory_cuts(root_model, current_primal, canon, *root_lp.basis, options.max_cut_rounds);
+            std::vector<Cut> cuts = generate_gomory_cuts(root_model, current_primal, canon, *root_lp.basis, options.max_cut_rounds);
+            if (options.enable_mir_cuts) {
+                const auto mir_cuts = generate_mir_cuts(root_model, current_primal, canon, *root_lp.basis, options.max_cut_rounds);
+                cuts.insert(cuts.end(), mir_cuts.begin(), mir_cuts.end());
+            }
+            cuts = filter_cuts(std::move(cuts), options.max_cut_rounds);
             if (!cuts.empty()) {
                 add_cuts_to_model(root_model, cuts);
                 result.cuts_generated += cuts.size();
@@ -231,7 +237,40 @@ Result solve(const model::Model& model, const Options& options) {
         }
     }
 
-    // 4. Initialize Active Node Priority Queue
+    // 4. Evaluate Strong Branching at Root to Initialize Pseudo-Costs and Tighten Bounds
+    if (options.enable_strong_branching && current_basis.has_value()) {
+        try {
+            StrongBranchingOptions sb_opts;
+            sb_opts.integrality_tolerance = options.integrality_tolerance;
+            sb_opts.feasibility_tolerance = options.feasibility_tolerance;
+            sb_opts.update_pseudo_costs = true;
+            const auto sb_res = evaluate_strong_branching(
+                root_model, current_primal, current_obj, current_basis, sb_opts, &pseudo_costs);
+
+            if (sb_res.subproblem_infeasible) {
+                result.status = lp::reference::SolveStatus::infeasible;
+                result.message = "proven infeasible by strong branching at root";
+                const auto elapsed = std::chrono::steady_clock::now() - start_time;
+                result.runtime_ms = std::chrono::duration<double, std::milli>(elapsed).count();
+                return result;
+            }
+
+            // Apply discovered domain reductions to root model
+            for (const auto& dr : sb_res.domain_reductions) {
+                if (dr.variable_index < root_model.matrix.column_count) {
+                    if (dr.new_lower.is_finite()) {
+                        root_model.variable_lower[dr.variable_index] = dr.new_lower;
+                    }
+                    if (dr.new_upper.is_finite()) {
+                        root_model.variable_upper[dr.variable_index] = dr.new_upper;
+                    }
+                }
+            }
+        } catch (...) {
+        }
+    }
+
+    // 5. Initialize Active Node Priority Queue
     std::priority_queue<std::shared_ptr<BranchNode>,
                         std::vector<std::shared_ptr<BranchNode>>,
                         NodeCompareBestBound> queue;
@@ -246,7 +285,7 @@ Result solve(const model::Model& model, const Options& options) {
     root_node->warm_basis = current_basis;
     queue.push(root_node);
 
-    // 5. Tree Search Loop
+    // 6. Tree Search Loop
     while (!queue.empty() && result.nodes_explored < options.max_nodes) {
         const auto now = std::chrono::steady_clock::now();
         const auto time_spent = std::chrono::duration<double>(now - start_time).count();
@@ -329,10 +368,34 @@ Result solve(const model::Model& model, const Options& options) {
             }
         }
 
-        // 6. Branching Variable Selection
-        const std::size_t branch_var = select_branching_variable(
-            node_lp_res.primal, root_model.variable_type, pseudo_costs,
-            options.branching_strategy, options.integrality_tolerance);
+        // 7. Branching Variable Selection
+        std::size_t branch_var = root_model.matrix.column_count;
+        if (options.branching_strategy == BranchingStrategy::strong_branching && node_lp_res.basis.has_value()) {
+            try {
+                StrongBranchingOptions sb_opts;
+                sb_opts.integrality_tolerance = options.integrality_tolerance;
+                sb_opts.feasibility_tolerance = options.feasibility_tolerance;
+                sb_opts.update_pseudo_costs = true;
+                model::Model current_node_model = root_model;
+                current_node_model.variable_lower = node->variable_lower;
+                current_node_model.variable_upper = node->variable_upper;
+                const auto sb_res = evaluate_strong_branching(
+                    current_node_model, node_lp_res.primal, node_lp_res.objective,
+                    node_lp_res.basis, sb_opts, &pseudo_costs);
+                if (sb_res.subproblem_infeasible) {
+                    continue; // Prune node
+                }
+                branch_var = sb_res.best_variable;
+            } catch (...) {
+                branch_var = select_branching_variable(
+                    node_lp_res.primal, root_model.variable_type, pseudo_costs,
+                    options.branching_strategy, options.integrality_tolerance);
+            }
+        } else {
+            branch_var = select_branching_variable(
+                node_lp_res.primal, root_model.variable_type, pseudo_costs,
+                options.branching_strategy, options.integrality_tolerance);
+        }
 
         if (branch_var >= root_model.matrix.column_count) {
             continue;

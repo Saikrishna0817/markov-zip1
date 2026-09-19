@@ -167,6 +167,7 @@ HeuristicResult feasibility_pump(
     }
 
     std::vector<double> current_lp_x = continuous_primal;
+    std::vector<std::vector<double>> visited_rounded;
 
     for (std::size_t iter = 0; iter < max_iterations; ++iter) {
         // 1. Round integer variables to nearest integer
@@ -191,6 +192,57 @@ HeuristicResult feasibility_pump(
             result.objective = compute_objective(model, rounded_x);
             return result;
         }
+
+        // Cycling detection & perturbation (Fischetti, Lodi, Glover 2005)
+        bool cycle_detected = false;
+        for (const auto& prev : visited_rounded) {
+            bool identical = true;
+            for (std::size_t j = 0; j < rounded_x.size(); ++j) {
+                if (model.variable_type[j] != model::VariableType::continuous) {
+                    if (std::abs(rounded_x[j] - prev[j]) > integrality_tol) {
+                        identical = false;
+                        break;
+                    }
+                }
+            }
+            if (identical) {
+                cycle_detected = true;
+                break;
+            }
+        }
+
+        if (cycle_detected) {
+            // Find integer variables with continuous relaxation closest to 0.5 (most ambiguous)
+            std::vector<std::pair<double, std::size_t>> ambig;
+            for (std::size_t j = 0; j < model.matrix.column_count; ++j) {
+                if (model.variable_type[j] != model::VariableType::continuous) {
+                    const double frac = current_lp_x[j] - std::floor(current_lp_x[j]);
+                    const double dist = std::abs(frac - 0.5);
+                    ambig.push_back({dist, j});
+                }
+            }
+            std::sort(ambig.begin(), ambig.end());
+
+            // Flip top 1 to min(3, ambig.size()) candidates
+            const std::size_t flip_count = std::min<std::size_t>(3, ambig.size());
+            for (std::size_t k = 0; k < flip_count; ++k) {
+                const std::size_t flip_j = ambig[k].second;
+                const double lo = model.variable_lower[flip_j].is_finite() ? model.variable_lower[flip_j].value : 0.0;
+                const double up = model.variable_upper[flip_j].is_finite() ? model.variable_upper[flip_j].value : 1.0;
+                if (std::abs(up - lo - 1.0) < 1e-4) {
+                    // Binary flip
+                    rounded_x[flip_j] = (rounded_x[flip_j] <= lo + 1e-4) ? up : lo;
+                } else {
+                    // General integer shift away from round direction
+                    if (current_lp_x[flip_j] > rounded_x[flip_j] && rounded_x[flip_j] + 1.0 <= up + 1e-4) {
+                        rounded_x[flip_j] += 1.0;
+                    } else if (rounded_x[flip_j] - 1.0 >= lo - 1e-4) {
+                        rounded_x[flip_j] -= 1.0;
+                    }
+                }
+            }
+        }
+        visited_rounded.push_back(rounded_x);
 
         // 2. Set up distance-minimization LP
         // min sum_{j in I} |x_j - x_tilde_j|

@@ -9,7 +9,9 @@ namespace markov_cero::milp {
 
 enum class BranchingStrategy {
     most_fractional,
-    pseudo_cost
+    pseudo_cost,
+    strong_branching,
+    reliability
 };
 
 struct VariablePseudoCost {

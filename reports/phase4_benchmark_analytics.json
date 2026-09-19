@@ -1,0 +1,66 @@
+{
+  "timestamp": "2026-09-19 13:18:55 UTC",
+  "option_a_pdlp": [
+    {
+      "model": "blend.mps",
+      "description": "Blend LP (2 cols, 2 rows)",
+      "simplex_obj": 3500,
+      "simplex_iters": 2,
+      "simplex_time_ms": 0.148131,
+      "simplex_verified": true,
+      "pdlp_obj": 3500.1104900879454,
+      "pdlp_iters": 3600,
+      "pdlp_time_ms": 0.364468,
+      "pdlp_verified": true,
+      "matrix_factorizations_pdlp": 0
+    },
+    {
+      "model": "refinery-feasible.mps",
+      "description": "Refinery Continuous (2 cols, 2 rows)",
+      "simplex_obj": 2600,
+      "simplex_iters": 8,
+      "simplex_time_ms": 0.160645,
+      "simplex_verified": true,
+      "pdlp_obj": 2599.9068181269963,
+      "pdlp_iters": 3120,
+      "pdlp_time_ms": 0.22387,
+      "pdlp_verified": true,
+      "matrix_factorizations_pdlp": 0
+    }
+  ],
+  "option_b_cuts_and_branching": [
+    {
+      "instance": "stein9",
+      "pseudo_cost_nodes": 43,
+      "pseudo_cost_time_ms": 6.744125,
+      "most_fractional_nodes": 43,
+      "most_fractional_time_ms": 9.422565,
+      "no_cut_nodes": 43,
+      "cut_node_reduction": "0.0%",
+      "verified": true
+    },
+    {
+      "instance": "flugpl",
+      "pseudo_cost_nodes": 5845,
+      "pseudo_cost_time_ms": 1774.935696,
+      "most_fractional_nodes": 18201,
+      "most_fractional_time_ms": 4931.249059,
+      "no_cut_nodes": 5845,
+      "cut_node_reduction": "0.0%",
+      "verified": true
+    }
+  ],
+  "option_c_parallel_scaling": [
+    {
+      "instance": "stein9.mps",
+      "t1_ms": 0.77844,
+      "t2_ms": 1.172218,
+      "t4_ms": 1.383641,
+      "speedup_2th": "0.66x",
+      "speedup_4th": "0.56x",
+      "efficiency_4th": "14.1%",
+      "identical_optima": true,
+      "zero_trust_verified": true
+    }
+  ]
+}

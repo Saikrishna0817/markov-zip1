@@ -16,7 +16,7 @@ for rel in forbidden_paths:
     if (root / rel).exists():
         raise SystemExit("forbidden future-solver path exists: " + rel)
 
-allowed_lp = {src / "lp" / "reference", src / "lp" / "dual"}
+allowed_lp = {src / "lp" / "reference", src / "lp" / "dual", src / "lp" / "first_order"}
 if (src / "lp").is_dir():
     for child in (src / "lp").iterdir():
         if child.is_dir() and child not in allowed_lp:
@@ -24,7 +24,6 @@ if (src / "lp").is_dir():
 
 tokens = (
     "branch_and_bound",
-    "pdhg",
     "cudaKernel",
     "cublas",
     "cusparse",

@@ -7,6 +7,7 @@ option(MARKOV_CERO_BUILD_FUZZER "Build libFuzzer MPS target with Clang" OFF)
 if(MARKOV_CERO_ENABLE_ASAN_UBSAN AND MARKOV_CERO_ENABLE_TSAN)
   message(FATAL_ERROR "ASan/UBSan and TSan are mutually exclusive")
 endif()
+find_package(Threads REQUIRED)
 add_library(markov_cero_core STATIC
   src/foundation/build_info.cpp
   src/model/model.cpp
@@ -21,13 +22,17 @@ add_library(markov_cero_core STATIC
   src/lp/reference/revised_simplex.cpp
   src/verify/reference_lp_verifier.cpp
   src/lp/dual/dual_simplex.cpp
+  src/lp/first_order/pdlp.cpp
   src/milp/branch_selector.cpp
   src/milp/heuristics.cpp
   src/milp/cuts.cpp
+  src/milp/strong_branching.cpp
+  src/milp/parallel_tree_search.cpp
   src/milp/milp_solver.cpp
 )
 target_include_directories(markov_cero_core PUBLIC include)
 target_compile_features(markov_cero_core PUBLIC cxx_std_20)
+target_link_libraries(markov_cero_core PUBLIC Threads::Threads)
 if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
   target_compile_options(markov_cero_core PRIVATE -Wall -Wextra -Wpedantic)
   if(MARKOV_CERO_WARNINGS_AS_ERRORS)
@@ -86,6 +91,12 @@ add_executable(milp_heuristics_test tests/milp_heuristics_test.cpp)
 target_link_libraries(milp_heuristics_test PRIVATE markov_cero_core)
 add_executable(milp_cuts_test tests/milp_cuts_test.cpp)
 target_link_libraries(milp_cuts_test PRIVATE markov_cero_core)
+add_executable(strong_branching_test tests/strong_branching_test.cpp)
+target_link_libraries(strong_branching_test PRIVATE markov_cero_core)
+add_executable(pdlp_test tests/pdlp_test.cpp)
+target_link_libraries(pdlp_test PRIVATE markov_cero_core)
+add_executable(parallel_tree_search_test tests/parallel_tree_search_test.cpp)
+target_link_libraries(parallel_tree_search_test PRIVATE markov_cero_core)
 add_test(NAME foundation_contract COMMAND foundation_test)
 add_test(NAME m1_model_parser_verifier COMMAND m1_test)
 add_test(NAME m1_edge_cases COMMAND m1_edge_test)
@@ -105,6 +116,9 @@ add_test(NAME ruiz_scaling COMMAND ruiz_scaling_test)
 add_test(NAME milp COMMAND milp_test)
 add_test(NAME milp_heuristics COMMAND milp_heuristics_test)
 add_test(NAME milp_cuts COMMAND milp_cuts_test)
+add_test(NAME strong_branching COMMAND strong_branching_test)
+add_test(NAME pdlp COMMAND pdlp_test)
+add_test(NAME parallel_tree_search COMMAND parallel_tree_search_test)
 add_test(NAME json_records COMMAND ${CMAKE_COMMAND} -E env python3 ${CMAKE_SOURCE_DIR}/scripts/validate_records.py ${CMAKE_SOURCE_DIR})
 add_test(NAME no_future_solver_guard COMMAND ${CMAKE_COMMAND} -E env python3 ${CMAKE_SOURCE_DIR}/scripts/no_solver_guard.py ${CMAKE_SOURCE_DIR})
 add_test(NAME cli_blend_optimal COMMAND markov-cero-solve ${CMAKE_SOURCE_DIR}/examples/blend.mps)
@@ -121,7 +135,7 @@ set_tests_properties(
   foundation_contract m1_model_parser_verifier m1_edge_cases m1_fuzz_smoke m1_randomized_properties
   m2_dense_lu_canonicalization m3_reference_primal_simplex m3_randomized_differential m4_dual_simplex
   m4_randomized_warm_starts m5_sparse_basis m5_sparse_update_properties m5_audit_regressions
-  sparse_canonicalize presolve ruiz_scaling milp milp_heuristics milp_cuts json_records no_future_solver_guard
+  sparse_canonicalize presolve ruiz_scaling milp milp_heuristics milp_cuts strong_branching pdlp parallel_tree_search json_records no_future_solver_guard
   cli_blend_optimal cli_refinery_feasible cli_refinery_infeasible cli_refinery_malformed cli_refinery_limited
   netlib_benchmarks miplib_benchmarks
   PROPERTIES TIMEOUT 60)

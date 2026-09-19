@@ -87,23 +87,29 @@ std::size_t select_pseudo_cost(
         throw std::invalid_argument("candidates list is empty in select_pseudo_cost");
     }
 
-    // Check if any candidate has insufficient history (< 4 observations on either side)
-    // If so, fall back to most fractional for reliable initial exploration
-    bool has_unreliable = false;
-    for (std::size_t j : candidates) {
-        if (j < pseudo_costs.size()) {
-            if (pseudo_costs[j].down_count < 4 || pseudo_costs[j].up_count < 4) {
-                has_unreliable = true;
-                break;
-            }
-        } else {
-            has_unreliable = true;
-            break;
+    // Compute global average pseudo costs across observed variables
+    double avg_down = 1.0;
+    double avg_up = 1.0;
+    double sum_down = 0.0;
+    double sum_up = 0.0;
+    std::size_t count_down = 0;
+    std::size_t count_up = 0;
+
+    for (const auto& pc : pseudo_costs) {
+        if (pc.down_count > 0) {
+            sum_down += pc.down_cost();
+            ++count_down;
+        }
+        if (pc.up_count > 0) {
+            sum_up += pc.up_cost();
+            ++count_up;
         }
     }
-
-    if (has_unreliable) {
-        return select_most_fractional(primal, candidates);
+    if (count_down > 0) {
+        avg_down = sum_down / static_cast<double>(count_down);
+    }
+    if (count_up > 0) {
+        avg_up = sum_up / static_cast<double>(count_up);
     }
 
     std::size_t best_var = candidates[0];
@@ -115,8 +121,15 @@ std::size_t select_pseudo_cost(
         const double down_frac = frac;
         const double up_frac = 1.0 - frac;
 
-        const double down_deg = pseudo_costs[j].down_cost() * down_frac;
-        const double up_deg = pseudo_costs[j].up_cost() * up_frac;
+        const double down_cost = (j < pseudo_costs.size() && pseudo_costs[j].down_count > 0)
+                                     ? pseudo_costs[j].down_cost()
+                                     : avg_down;
+        const double up_cost = (j < pseudo_costs.size() && pseudo_costs[j].up_count > 0)
+                                   ? pseudo_costs[j].up_cost()
+                                   : avg_up;
+
+        const double down_deg = down_cost * down_frac;
+        const double up_deg = up_cost * up_frac;
 
         // Standard Achterberg product score: (delta_down + eps) * (delta_up + eps)
         constexpr double eps = 1e-6;
@@ -140,10 +153,12 @@ std::size_t select_branching_variable(
     if (candidates.empty()) {
         return types.size(); // None fractional
     }
-    if (strategy == BranchingStrategy::pseudo_cost) {
-        return select_pseudo_cost(primal, candidates, pseudo_costs);
+    if (strategy == BranchingStrategy::most_fractional) {
+        return select_most_fractional(primal, candidates);
     }
-    return select_most_fractional(primal, candidates);
+    // pseudo_cost, strong_branching, and reliability fallback to pseudo-cost
+    // when called without an active solver/basis state context
+    return select_pseudo_cost(primal, candidates, pseudo_costs);
 }
 
 } // namespace markov_cero::milp

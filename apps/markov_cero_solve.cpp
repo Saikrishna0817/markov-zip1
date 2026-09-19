@@ -1,8 +1,11 @@
 #include "markov_cero/foundation/build_info.hpp"
 #include "markov_cero/io/mps.hpp"
 #include "markov_cero/lp/dual/dual_simplex.hpp"
+#include "markov_cero/lp/first_order/pdlp.hpp"
 #include "markov_cero/lp/reference/revised_simplex.hpp"
 #include "markov_cero/milp/milp_solver.hpp"
+#include "markov_cero/milp/parallel_tree_search.hpp"
+#include "markov_cero/milp/strong_branching.hpp"
 #include "markov_cero/presolve/presolve.hpp"
 #include "markov_cero/scale/ruiz_scaling.hpp"
 #include "markov_cero/transform/canonicalize.hpp"
@@ -100,11 +103,13 @@ void usage(std::ostream& out) {
     out << "usage: markov-cero-solve MODEL.mps [options]\n"
         << "options:\n"
         << "  --output result.json     Write output JSON to file\n"
-        << "  --engine primal|dual|milp|auto Select solver engine (default: auto)\n"
+        << "  --engine primal|dual|pdlp|milp|parallel|auto Select solver engine (default: auto)\n"
+        << "  --threads N              Worker threads for parallel tree search (default: 4)\n"
+        << "  --branching most_fractional|pseudo_cost|strong_branching|reliability Branching variable selection rule (default: pseudo_cost)\n"
         << "  --iteration-limit N      Maximum simplex iterations\n"
         << "  --max-nodes N            Maximum branch-and-cut search nodes (default: 50000)\n"
         << "  --time-limit SEC         Maximum search time limit in seconds (default: 60.0)\n"
-        << "  --cuts, --no-cuts        Enable or disable Gomory mixed-integer cuts (default: enabled)\n"
+        << "  --cuts, --no-cuts        Enable or disable Gomory & MIR mixed-integer cuts (default: enabled)\n"
         << "  --heuristics, --no-heuristics Enable or disable primal heuristics (default: enabled)\n"
         << "  --warm-start FILE        Load warm-start basis from file (dual engine)\n"
         << "  --save-basis FILE        Save optimal basis to file\n"
@@ -121,6 +126,7 @@ int main(int argc, char** argv) {
     std::string path;
     std::string output_path;
     std::string engine_name = "auto";
+    std::size_t num_threads = 4;
     std::string warm_start_path;
     std::string save_basis_path;
     bool enable_presolve = true;
@@ -149,8 +155,40 @@ int main(int argc, char** argv) {
                 return 8;
             }
             engine_name = argv[++i];
-            if (engine_name != "primal" && engine_name != "dual" && engine_name != "milp" && engine_name != "auto") {
-                std::cerr << "invalid engine (must be primal, dual, milp, or auto): " << engine_name << "\n";
+            if (engine_name != "primal" && engine_name != "dual" && engine_name != "pdlp" &&
+                engine_name != "milp" && engine_name != "parallel" && engine_name != "auto") {
+                std::cerr << "invalid engine (must be primal, dual, pdlp, milp, parallel, or auto): " << engine_name << "\n";
+                return 8;
+            }
+            continue;
+        }
+        if (arg == "--threads") {
+            if (i + 1 >= argc) {
+                usage(std::cerr);
+                return 8;
+            }
+            num_threads = std::strtoul(argv[++i], nullptr, 10);
+            if (num_threads == 0) {
+                num_threads = 1;
+            }
+            continue;
+        }
+        if (arg == "--branching") {
+            if (i + 1 >= argc) {
+                usage(std::cerr);
+                return 8;
+            }
+            const std::string bval = argv[++i];
+            if (bval == "most_fractional") {
+                milp_options.branching_strategy = markov_cero::milp::BranchingStrategy::most_fractional;
+            } else if (bval == "pseudo_cost") {
+                milp_options.branching_strategy = markov_cero::milp::BranchingStrategy::pseudo_cost;
+            } else if (bval == "strong_branching") {
+                milp_options.branching_strategy = markov_cero::milp::BranchingStrategy::strong_branching;
+            } else if (bval == "reliability") {
+                milp_options.branching_strategy = markov_cero::milp::BranchingStrategy::reliability;
+            } else {
+                std::cerr << "invalid branching strategy (most_fractional, pseudo_cost, strong_branching, reliability): " << bval << "\n";
                 return 8;
             }
             continue;
@@ -313,7 +351,96 @@ int main(int argc, char** argv) {
             resolved_engine = has_discrete ? "milp" : "primal";
         }
 
-        if (resolved_engine == "milp") {
+        if (resolved_engine == "parallel") {
+            markov_cero::milp::ParallelOptions par_opts;
+            par_opts.num_threads = num_threads;
+            par_opts.time_limit_seconds = milp_options.time_limit_seconds;
+            par_opts.max_nodes = milp_options.max_nodes;
+            par_opts.enable_cuts = milp_options.enable_cuts;
+            par_opts.enable_mir_cuts = milp_options.enable_mir_cuts;
+            par_opts.enable_heuristics = milp_options.enable_heuristics;
+            par_opts.enable_strong_branching = milp_options.enable_strong_branching;
+            par_opts.branching_strategy = milp_options.branching_strategy;
+            const auto par_res = markov_cero::milp::solve_parallel(model, par_opts);
+            result.status = par_res.status;
+            result.message = par_res.message;
+            nodes_explored = par_res.nodes_explored;
+            total_lp_iterations = par_res.lp_iterations;
+            best_bound = par_res.best_bound;
+            relative_gap = par_res.relative_gap;
+            cuts_generated = par_res.cuts_generated;
+            heuristics_found = par_res.heuristics_found;
+
+            if (result.status == markov_cero::lp::reference::SolveStatus::optimal) {
+                original_primal = par_res.primal;
+                original_objective = par_res.objective;
+                result.primal = par_res.primal;
+                result.objective = par_res.objective;
+
+                markov_cero::verify::Candidate candidate{original_primal, original_objective};
+                primal_report = markov_cero::verify::verify_primal(model, candidate);
+                original_verified = primal_report.passed;
+                canonical_verified = true;
+                std::string viol_desc;
+                if (!primal_report.violations.empty()) {
+                    const auto& v = primal_report.violations[0];
+                    viol_desc = v.category + " idx=" + std::to_string(v.index) + " act=" + std::to_string(v.actual) + " bnd=" + std::to_string(v.bound) + " diff=" + std::to_string(v.magnitude) + " allow=" + std::to_string(v.allowance);
+                }
+                original_message = original_verified ? "original primal verified" : ("original primal rejected: " + viol_desc);
+                if (!original_verified) {
+                    result.status = markov_cero::lp::reference::SolveStatus::numerical_failure;
+                    result.message = "original-model verification failed: " + viol_desc;
+                }
+            } else if (result.status == markov_cero::lp::reference::SolveStatus::infeasible ||
+                       result.status == markov_cero::lp::reference::SolveStatus::unbounded) {
+                canonical_verified = true;
+                original_message = "original primal not applicable";
+            } else {
+                original_message = "original primal not applicable";
+            }
+        } else if (resolved_engine == "pdlp") {
+            markov_cero::lp::first_order::PdlpOptions pdlp_opts;
+            pdlp_opts.max_iterations = (options.iteration_limit != 10000 && options.iteration_limit > 0) ? options.iteration_limit : 100000;
+            pdlp_opts.primal_tolerance = 1e-4;
+            pdlp_opts.dual_tolerance = 1e-4;
+            pdlp_opts.gap_tolerance = 1e-4;
+            const auto pdlp_res = markov_cero::lp::first_order::solve_pdlp(model, pdlp_opts);
+            total_lp_iterations = pdlp_res.iterations;
+            if (pdlp_res.status == markov_cero::lp::first_order::PdlpStatus::optimal) {
+                result.status = markov_cero::lp::reference::SolveStatus::optimal;
+                result.primal = pdlp_res.primal;
+                result.dual = pdlp_res.dual;
+                result.objective = pdlp_res.objective;
+                result.message = pdlp_res.message;
+                original_primal = pdlp_res.primal;
+                original_objective = pdlp_res.objective;
+
+                markov_cero::verify::Candidate candidate{original_primal, original_objective};
+                const markov_cero::verify::Tolerance pdlp_tol{1e-4, 1e-4};
+                primal_report = markov_cero::verify::verify_primal(model, candidate, pdlp_tol, pdlp_tol);
+                original_verified = primal_report.passed;
+                canonical_verified = true;
+                std::string viol_desc;
+                if (!primal_report.violations.empty()) {
+                    const auto& v = primal_report.violations[0];
+                    viol_desc = v.category + " idx=" + std::to_string(v.index) + " act=" + std::to_string(v.actual) + " bnd=" + std::to_string(v.bound) + " diff=" + std::to_string(v.magnitude) + " allow=" + std::to_string(v.allowance);
+                }
+                original_message = original_verified ? "original primal verified" : ("original primal rejected: " + viol_desc);
+                if (!original_verified) {
+                    result.status = markov_cero::lp::reference::SolveStatus::numerical_failure;
+                    result.message = "original-model verification failed: " + viol_desc;
+                }
+            } else if (pdlp_res.status == markov_cero::lp::first_order::PdlpStatus::iteration_limit) {
+                result.status = markov_cero::lp::reference::SolveStatus::iteration_limit;
+                result.message = pdlp_res.message;
+            } else {
+                result.status = markov_cero::lp::reference::SolveStatus::numerical_failure;
+                result.message = pdlp_res.message;
+            }
+            nodes_explored = 1;
+            best_bound = original_objective;
+            relative_gap = 0.0;
+        } else if (resolved_engine == "milp") {
             const auto milp_res = markov_cero::milp::solve(model, milp_options);
             result.status = milp_res.status;
             result.message = milp_res.message;

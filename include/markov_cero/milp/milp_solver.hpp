@@ -26,7 +26,9 @@ struct Options {
     double feasibility_tolerance{1e-7};
     bool enable_warm_start{true};
     bool enable_cuts{true};
+    bool enable_mir_cuts{true};
     bool enable_heuristics{true};
+    bool enable_strong_branching{true};
     std::size_t max_cut_rounds{5};
     std::size_t max_pump_iterations{10};
     NodeSelectionStrategy node_strategy{NodeSelectionStrategy::best_bound_plunge};
