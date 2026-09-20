@@ -76,4 +76,20 @@ void spmv(const DeviceCsr& A, const DeviceBuffer<double>& x, DeviceBuffer<double
 #endif
 }
 
+void spmv_transpose_cpu(const DeviceCsr& At, const double* y, double* z) {
+    spmv_cpu(At, y, z);
+}
+
+void spmv_transpose_cpu(const DeviceCsr& At,
+                        const DeviceBuffer<double>& y,
+                        DeviceBuffer<double>& z) {
+    spmv_cpu(At, y, z);
+}
+
+void spmv_transpose(const DeviceCsr& At,
+                    const DeviceBuffer<double>& y,
+                    DeviceBuffer<double>& z) {
+    spmv(At, y, z);
+}
+
 } // namespace markov_cero::gpu

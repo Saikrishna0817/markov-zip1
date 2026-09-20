@@ -113,6 +113,44 @@ DeviceCsr DeviceCsr::from_csc(const model::SparseMatrixCSC& csc) {
     return result;
 }
 
+DeviceCsr DeviceCsr::transpose_from_csc(const linalg::SparseCsc& csc) {
+    const std::size_t m = csc.rows;
+    const std::size_t n = csc.columns;
+    const std::size_t nnz = csc.values.size();
+
+    if (csc.column_offsets.size() != n + 1) {
+        throw std::invalid_argument("DeviceCsr::transpose_from_csc invalid column_offsets size");
+    }
+    if (csc.row_indices.size() != nnz) {
+        throw std::invalid_argument("DeviceCsr::transpose_from_csc row_indices size mismatch");
+    }
+
+    DeviceCsr result(n, m, nnz);
+    result.row_offsets_.upload(csc.column_offsets);
+    result.col_indices_.upload(csc.row_indices);
+    result.values_.upload(csc.values);
+    return result;
+}
+
+DeviceCsr DeviceCsr::transpose_from_csc(const model::SparseMatrixCSC& csc) {
+    const std::size_t m = csc.row_count;
+    const std::size_t n = csc.column_count;
+    const std::size_t nnz = csc.value.size();
+
+    if (csc.column_start.size() != n + 1) {
+        throw std::invalid_argument("DeviceCsr::transpose_from_csc invalid column_start size");
+    }
+    if (csc.row_index.size() != nnz) {
+        throw std::invalid_argument("DeviceCsr::transpose_from_csc row_index size mismatch");
+    }
+
+    DeviceCsr result(n, m, nnz);
+    result.row_offsets_.upload(csc.column_start);
+    result.col_indices_.upload(csc.row_index);
+    result.values_.upload(csc.value);
+    return result;
+}
+
 void DeviceCsr::download_to(std::vector<std::size_t>& row_offsets,
                             std::vector<std::size_t>& col_indices,
                             std::vector<double>& values) const {

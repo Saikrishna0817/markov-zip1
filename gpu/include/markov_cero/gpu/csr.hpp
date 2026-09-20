@@ -22,6 +22,8 @@ class DeviceCsr final {
 
     [[nodiscard]] static DeviceCsr from_csc(const linalg::SparseCsc& csc);
     [[nodiscard]] static DeviceCsr from_csc(const model::SparseMatrixCSC& csc);
+    [[nodiscard]] static DeviceCsr transpose_from_csc(const linalg::SparseCsc& csc);
+    [[nodiscard]] static DeviceCsr transpose_from_csc(const model::SparseMatrixCSC& csc);
 
     [[nodiscard]] std::size_t rows() const noexcept { return rows_; }
     [[nodiscard]] std::size_t cols() const noexcept { return cols_; }
