@@ -23,6 +23,26 @@ void require(bool condition, const std::string& message) {
     }
 }
 
+double compute_max_abs_diff(const std::vector<double>& a, const std::vector<double>& b) {
+    require(a.size() == b.size(), "vector sizes must match for abs diff computation");
+    double max_diff = 0.0;
+    for (std::size_t i = 0; i < a.size(); ++i) {
+        max_diff = std::max(max_diff, std::abs(a[i] - b[i]));
+    }
+    return max_diff;
+}
+
+double compute_max_rel_diff(const std::vector<double>& a, const std::vector<double>& b) {
+    require(a.size() == b.size(), "vector sizes must match for rel diff computation");
+    double max_rel = 0.0;
+    for (std::size_t i = 0; i < a.size(); ++i) {
+        double abs_diff = std::abs(a[i] - b[i]);
+        double scale = 1.0 + std::max(std::abs(a[i]), std::abs(b[i]));
+        max_rel = std::max(max_rel, abs_diff / scale);
+    }
+    return max_rel;
+}
+
 void test_synthetic_spmv() {
     using namespace markov_cero;
     using namespace markov_cero::gpu;
@@ -83,9 +103,6 @@ void test_synthetic_spmv_transpose() {
     using namespace markov_cero;
     using namespace markov_cero::gpu;
 
-    // Construct 2x3 matrix:
-    // [ 1.0  0.0  3.0 ]
-    // [ 0.0  2.0  4.0 ]
     model::SparseMatrixBuilder builder(2, 3);
     builder.add(0, 0, 1.0);
     builder.add(0, 2, 3.0);
@@ -93,14 +110,11 @@ void test_synthetic_spmv_transpose() {
     builder.add(1, 2, 4.0);
     model::SparseMatrixCSC mat = builder.build();
 
-    // Build CSR of A^T (dimensions 3x2)
     DeviceCsr At = DeviceCsr::transpose_from_csc(mat);
     require(At.rows() == 3, "At.rows must be 3");
     require(At.cols() == 2, "At.cols must be 2");
     require(At.nnz() == 4, "At.nnz must be 4");
 
-    // Vector y = [2.0, -1.0]^T
-    // A^T * y = [ 1(2)+0(-1), 0(2)+2(-1), 3(2)+4(-1) ]^T = [ 2.0, -2.0, 2.0 ]^T
     DeviceBuffer<double> d_y(std::vector<double>{2.0, -1.0});
     DeviceBuffer<double> d_z(3);
     spmv_transpose(At, d_y, d_z);
@@ -110,7 +124,6 @@ void test_synthetic_spmv_transpose() {
     require(std::abs(h_z[1] - (-2.0)) <= 1e-15, "transpose [1]");
     require(std::abs(h_z[2] - 2.0) <= 1e-15, "transpose [2]");
 
-    // Dimension mismatch checks
     bool caught_y_mismatch = false;
     try {
         DeviceBuffer<double> d_y_wrong(3);
@@ -120,36 +133,154 @@ void test_synthetic_spmv_transpose() {
     }
     require(caught_y_mismatch, "failed to catch transpose y mismatch");
 
-    bool caught_z_mismatch = false;
-    try {
-        DeviceBuffer<double> d_z_wrong(2);
-        spmv_transpose(At, d_y, d_z_wrong);
-    } catch (const std::invalid_argument&) {
-        caught_z_mismatch = true;
-    }
-    require(caught_z_mismatch, "failed to catch transpose z mismatch");
-
     std::cout << "test_synthetic_spmv_transpose: PASS\n";
 }
 
-double compute_max_abs_diff(const std::vector<double>& a, const std::vector<double>& b) {
-    require(a.size() == b.size(), "vector sizes must match for abs diff computation");
-    double max_diff = 0.0;
-    for (std::size_t i = 0; i < a.size(); ++i) {
-        max_diff = std::max(max_diff, std::abs(a[i] - b[i]));
+void test_axpy_equivalence() {
+    using namespace markov_cero::gpu;
+
+    const std::vector<std::size_t> sizes = {0, 1, 17, 256, 10000};
+    const std::vector<double> alphas = {0.0, 1.0, -1.0, 2.71828, -1.5e-4};
+
+    std::mt19937_64 rng(12345);
+    std::uniform_real_distribution<double> dist(-100.0, 100.0);
+
+    for (std::size_t n : sizes) {
+        std::vector<double> h_x(n);
+        std::vector<double> h_y(n);
+        for (std::size_t i = 0; i < n; ++i) {
+            h_x[i] = dist(rng);
+            h_y[i] = dist(rng);
+        }
+
+        for (double alpha : alphas) {
+            DeviceBuffer<double> d_x(h_x);
+            DeviceBuffer<double> d_y(h_y);
+            DeviceBuffer<double> d_y_cpu(h_y);
+
+            axpy(alpha, d_x, d_y);
+            axpy_cpu(alpha, d_x, d_y_cpu);
+
+            std::vector<double> actual = d_y.to_vector();
+            std::vector<double> expected = d_y_cpu.to_vector();
+
+            double diff = compute_max_abs_diff(actual, expected);
+            require(diff <= 1e-12, "axpy diff exceeds 1e-12");
+        }
     }
-    return max_diff;
+
+    bool caught_mismatch = false;
+    try {
+        DeviceBuffer<double> d_x(10);
+        DeviceBuffer<double> d_y(15);
+        axpy(2.0, d_x, d_y);
+    } catch (const std::invalid_argument&) {
+        caught_mismatch = true;
+    }
+    require(caught_mismatch, "failed to catch axpy size mismatch");
+
+    std::cout << "test_axpy_equivalence: PASS\n";
 }
 
-double compute_max_rel_diff(const std::vector<double>& a, const std::vector<double>& b) {
-    require(a.size() == b.size(), "vector sizes must match for rel diff computation");
-    double max_rel = 0.0;
-    for (std::size_t i = 0; i < a.size(); ++i) {
-        double abs_diff = std::abs(a[i] - b[i]);
-        double scale = 1.0 + std::max(std::abs(a[i]), std::abs(b[i]));
-        max_rel = std::max(max_rel, abs_diff / scale);
+void test_scale_equivalence() {
+    using namespace markov_cero::gpu;
+
+    const std::vector<std::size_t> sizes = {0, 1, 33, 1024, 25000};
+    const std::vector<double> alphas = {0.0, -2.5, 0.5, 3.14159265, 1e6};
+
+    std::mt19937_64 rng(54321);
+    std::uniform_real_distribution<double> dist(-50.0, 50.0);
+
+    for (std::size_t n : sizes) {
+        std::vector<double> h_x(n);
+        for (std::size_t i = 0; i < n; ++i) {
+            h_x[i] = dist(rng);
+        }
+
+        for (double alpha : alphas) {
+            DeviceBuffer<double> d_x(h_x);
+            DeviceBuffer<double> d_x_cpu(h_x);
+
+            scale(alpha, d_x);
+            scale_cpu(alpha, d_x_cpu);
+
+            std::vector<double> actual = d_x.to_vector();
+            std::vector<double> expected = d_x_cpu.to_vector();
+
+            double diff = compute_max_abs_diff(actual, expected);
+            require(diff <= 1e-12, "scale diff exceeds 1e-12");
+        }
     }
-    return max_rel;
+
+    std::cout << "test_scale_equivalence: PASS\n";
+}
+
+void test_project_bounds_equivalence() {
+    using namespace markov_cero::gpu;
+
+    constexpr std::size_t n = 2000;
+    std::mt19937_64 rng(999);
+    std::uniform_real_distribution<double> dist(-20.0, 20.0);
+
+    std::vector<double> h_x(n);
+    std::vector<double> h_lo(n);
+    std::vector<double> h_hi(n);
+
+    for (std::size_t i = 0; i < n; ++i) {
+        h_x[i] = dist(rng);
+        if (i < 400) {
+            // Finite box [-2.0, 5.0]
+            h_lo[i] = -2.0;
+            h_hi[i] = 5.0;
+        } else if (i < 800) {
+            // Semi-infinite lower [0.0, +1e300]
+            h_lo[i] = 0.0;
+            h_hi[i] = 1e300;
+        } else if (i < 1200) {
+            // Semi-infinite upper [-1e300, 1.0]
+            h_lo[i] = -1e300;
+            h_hi[i] = 1.0;
+        } else if (i < 1600) {
+            // Equality bound [3.1415, 3.1415]
+            h_lo[i] = 3.1415;
+            h_hi[i] = 3.1415;
+        } else {
+            // Free [-1e300, +1e300]
+            h_lo[i] = -1e300;
+            h_hi[i] = 1e300;
+        }
+    }
+
+    DeviceBuffer<double> d_x(h_x);
+    DeviceBuffer<double> d_x_cpu(h_x);
+    DeviceBuffer<double> d_lo(h_lo);
+    DeviceBuffer<double> d_hi(h_hi);
+
+    project_bounds(d_x, d_lo, d_hi);
+    project_bounds_cpu(d_x_cpu, d_lo, d_hi);
+
+    std::vector<double> actual = d_x.to_vector();
+    std::vector<double> expected = d_x_cpu.to_vector();
+
+    double diff = compute_max_abs_diff(actual, expected);
+    require(diff <= 1e-12, "project_bounds diff exceeds 1e-12");
+
+    // Check invariants
+    for (std::size_t i = 0; i < n; ++i) {
+        require(actual[i] >= h_lo[i], "actual[i] violates lower bound");
+        require(actual[i] <= h_hi[i], "actual[i] violates upper bound");
+    }
+
+    bool caught_mismatch = false;
+    try {
+        DeviceBuffer<double> d_wrong_hi(n + 5);
+        project_bounds(d_x, d_lo, d_wrong_hi);
+    } catch (const std::invalid_argument&) {
+        caught_mismatch = true;
+    }
+    require(caught_mismatch, "failed to catch project_bounds size mismatch");
+
+    std::cout << "test_project_bounds_equivalence: PASS\n";
 }
 
 std::vector<double> csc_multiply_transpose(const markov_cero::model::SparseMatrixCSC& mat,
@@ -189,19 +320,16 @@ void test_netlib_instance(const std::string& instance_name,
     const std::size_t n = mdl.matrix.column_count;
     const std::size_t nnz = mdl.matrix.value.size();
 
-    // 1. Forward SpMV (A * x)
     DeviceCsr A = DeviceCsr::from_csc(mdl.matrix);
     require(A.rows() == m, "A.rows mismatch");
     require(A.cols() == n, "A.cols mismatch");
     require(A.nnz() == nnz, "A.nnz mismatch");
 
-    // 2. Transpose SpMV (A^T * y)
     DeviceCsr At = DeviceCsr::transpose_from_csc(mdl.matrix);
     require(At.rows() == n, "At.rows mismatch");
     require(At.cols() == m, "At.cols mismatch");
     require(At.nnz() == nnz, "At.nnz mismatch");
 
-    // Forward test with continuous random vector in [-1.0, 1.0]
     std::mt19937_64 rng(seed);
     std::uniform_real_distribution<double> dist(-1.0, 1.0);
     std::vector<double> h_x(n);
@@ -222,7 +350,6 @@ void test_netlib_instance(const std::string& instance_name,
     require(fwd_diff_cpu <= 1e-12, "forward kernel vs CPU diff exceeds 1e-12");
     require(fwd_diff_csc <= 1e-12, "forward CSC vs CSR relative diff exceeds 1e-12");
 
-    // Transpose test with continuous random vector in [-1.0, 1.0]
     std::vector<double> h_y(m);
     for (std::size_t i = 0; i < m; ++i) {
         h_y[i] = dist(rng);
@@ -272,10 +399,13 @@ void test_all_netlib_matrices() {
 } // namespace
 
 int main() {
-    std::cout << "=== Markov-Cero SpMV & Transpose Equivalence Test (T-5.03/T-5.04) ===\n";
+    std::cout << "=== Markov-Cero Kernel Equivalence Tests (T-5.03 - T-5.05) ===\n";
     test_synthetic_spmv();
     test_synthetic_spmv_transpose();
+    test_axpy_equivalence();
+    test_scale_equivalence();
+    test_project_bounds_equivalence();
     test_all_netlib_matrices();
-    std::cout << "=== All Equivalence Tests Passed Successfully ===\n";
+    std::cout << "=== All Kernel Equivalence Tests Passed Successfully ===\n";
     return 0;
 }

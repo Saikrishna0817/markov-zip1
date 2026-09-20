@@ -56,13 +56,17 @@ add_library(markov_cero_core STATIC
   gpu/src/csr.cpp
   gpu/src/device.cpp
   gpu/src/spmv.cpp
+  gpu/src/vector_ops.cpp
 )
 target_include_directories(markov_cero_core PUBLIC include gpu/include)
 target_compile_features(markov_cero_core PUBLIC cxx_std_20)
 target_link_libraries(markov_cero_core PUBLIC Threads::Threads)
 if(MARKOV_CERO_ENABLE_CUDA)
   target_compile_definitions(markov_cero_core PUBLIC MARKOV_CERO_HAS_CUDA=1)
-  target_sources(markov_cero_core PRIVATE gpu/kernels/spmv.cu)
+  target_sources(markov_cero_core PRIVATE
+    gpu/kernels/spmv.cu
+    gpu/kernels/vector_ops.cu
+  )
 endif()
 if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
   target_compile_options(markov_cero_core PRIVATE -Wall -Wextra -Wpedantic)
