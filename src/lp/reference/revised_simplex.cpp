@@ -86,14 +86,16 @@ struct IterationOutcome {
     std::size_t iterations{};
 };
 
-bool significant_negative_reduced_cost(const Work& w, std::size_t j, const std::vector<double>& cost,
+bool significant_negative_reduced_cost(const Work& w, std::size_t j,
+                                       const std::vector<double>& cost,
                                        const std::vector<double>& y, double rc, double tol) {
     long double scale = std::abs(static_cast<long double>(cost[j]));
     for (std::size_t i = 0; i < w.rows; ++i) {
         scale += std::abs(static_cast<long double>(w.a[i * w.total_columns + j]) * y[i]);
     }
     const double z = static_cast<double>(scale);
-    const double allowed = tol * z + 64.0 * std::numeric_limits<double>::epsilon() * std::max(1.0, z);
+    const double allowed =
+        tol * z + 64.0 * std::numeric_limits<double>::epsilon() * std::max(1.0, z);
     return rc < -allowed;
 }
 
@@ -108,9 +110,9 @@ void snap_basic_solution(std::vector<double>& xb, double feasibility_tolerance) 
     }
 }
 
-std::size_t select_entering(const Work& w, const std::vector<double>& cost, const std::vector<double>& y,
-                            const std::vector<bool>& basic, std::size_t enter_limit, const Options& o,
-                            double& minimum_rc) {
+std::size_t select_entering(const Work& w, const std::vector<double>& cost,
+                            const std::vector<double>& y, const std::vector<bool>& basic,
+                            std::size_t enter_limit, const Options& o, double& minimum_rc) {
     std::size_t entering = enter_limit;
     minimum_rc = 0;
     for (std::size_t j = 0; j < enter_limit; ++j) {
@@ -134,8 +136,8 @@ std::size_t select_entering(const Work& w, const std::vector<double>& cost, cons
     return entering;
 }
 
-std::size_t select_leaving(const Work& w, const std::vector<double>& xb, const std::vector<double>& d,
-                           const Options& o, double& theta) {
+std::size_t select_leaving(const Work& w, const std::vector<double>& xb,
+                           const std::vector<double>& d, const Options& o, double& theta) {
     std::size_t leaving_row = w.rows;
     theta = std::numeric_limits<double>::infinity();
     for (std::size_t i = 0; i < w.rows; ++i) {
@@ -146,7 +148,8 @@ std::size_t select_leaving(const Work& w, const std::vector<double>& xb, const s
         if (!std::isfinite(ratio)) {
             throw std::overflow_error("non-finite simplex ratio");
         }
-        if (ratio < theta || (ratio == theta && (leaving_row == w.rows || w.basis[i] < w.basis[leaving_row]))) {
+        if (ratio < theta ||
+            (ratio == theta && (leaving_row == w.rows || w.basis[i] < w.basis[leaving_row]))) {
             theta = ratio;
             leaving_row = i;
         }
@@ -154,9 +157,9 @@ std::size_t select_leaving(const Work& w, const std::vector<double>& xb, const s
     return leaving_row;
 }
 
-IterationOutcome iterate(Work& w, const std::vector<double>& cost, std::size_t enter_limit, const Options& o,
-                         int phase, std::size_t budget, std::vector<IterationRecord>& log,
-                         bool& telemetry_truncated) {
+IterationOutcome iterate(Work& w, const std::vector<double>& cost, std::size_t enter_limit,
+                         const Options& o, int phase, std::size_t budget,
+                         std::vector<IterationRecord>& log, bool& telemetry_truncated) {
     IterationOutcome out;
     for (std::size_t step = 0; step <= budget; ++step) {
         if (step == budget) {
@@ -345,12 +348,12 @@ std::vector<double> full_solution(const Work& w, const std::vector<double>& xb) 
 }
 
 bool options_invalid(const Options& o) {
-    return o.iteration_limit == 0 || !std::isfinite(o.feasibility_tolerance) || !std::isfinite(o.dual_tolerance) ||
-           !std::isfinite(o.pivot_tolerance) || o.feasibility_tolerance <= 0 || o.dual_tolerance <= 0 ||
-           o.pivot_tolerance <= 0 || o.feasibility_tolerance > maximum_tolerance ||
-           o.dual_tolerance > maximum_tolerance || o.pivot_tolerance > maximum_tolerance ||
-           o.pivot_tolerance > o.feasibility_tolerance || o.iteration_limit > maximum_iterations ||
-           o.telemetry_limit > maximum_telemetry;
+    return o.iteration_limit == 0 || !std::isfinite(o.feasibility_tolerance) ||
+           !std::isfinite(o.dual_tolerance) || !std::isfinite(o.pivot_tolerance) ||
+           o.feasibility_tolerance <= 0 || o.dual_tolerance <= 0 || o.pivot_tolerance <= 0 ||
+           o.feasibility_tolerance > maximum_tolerance || o.dual_tolerance > maximum_tolerance ||
+           o.pivot_tolerance > maximum_tolerance || o.pivot_tolerance > o.feasibility_tolerance ||
+           o.iteration_limit > maximum_iterations || o.telemetry_limit > maximum_telemetry;
 }
 
 } // namespace
@@ -382,8 +385,8 @@ Result solve(const transform::CanonicalModel& m, const Options& o) {
                 w.basis[i] = w.original_columns + i;
                 phase_one_cost[w.basis[i]] = 1;
             }
-            auto one = iterate(w, phase_one_cost, w.total_columns, o, 1, remaining, result.telemetry,
-                               result.telemetry_truncated);
+            auto one = iterate(w, phase_one_cost, w.total_columns, o, 1, remaining,
+                               result.telemetry, result.telemetry_truncated);
             result.phase_one_iterations = one.iterations;
             remaining -= std::min(remaining, one.iterations);
             if (one.status == SolveStatus::iteration_limit) {
@@ -405,7 +408,8 @@ Result solve(const transform::CanonicalModel& m, const Options& o) {
                     result.certificate[w.row_origin[i]] = w.row_sign[i] * one.y[i];
                 }
                 result.message = "validated phase I Farkas candidate";
-                return certify(m, std::move(result), std::max(o.feasibility_tolerance, o.dual_tolerance));
+                return certify(m, std::move(result),
+                               std::max(o.feasibility_tolerance, o.dual_tolerance));
             }
             remove_artificials(w, o.pivot_tolerance);
         }
@@ -421,17 +425,20 @@ Result solve(const transform::CanonicalModel& m, const Options& o) {
             auto anchor = full_solution(w, two.xb);
             result.primal.assign(anchor.begin(),
                                  anchor.begin() + static_cast<std::ptrdiff_t>(w.original_columns));
-            result.ray.assign(two.ray.begin(), two.ray.begin() + static_cast<std::ptrdiff_t>(w.original_columns));
+            result.ray.assign(two.ray.begin(),
+                              two.ray.begin() + static_cast<std::ptrdiff_t>(w.original_columns));
             result.objective = dot(m.objective, result.primal) + m.objective_offset;
             result.message = "primal improving ray";
-            return certify(m, std::move(result), std::max(o.feasibility_tolerance, o.dual_tolerance));
+            return certify(m, std::move(result),
+                           std::max(o.feasibility_tolerance, o.dual_tolerance));
         }
         if (two.status != SolveStatus::optimal) {
             result.message = "phase II numerical failure";
             return result;
         }
         auto x = full_solution(w, two.xb);
-        result.primal.assign(x.begin(), x.begin() + static_cast<std::ptrdiff_t>(w.original_columns));
+        result.primal.assign(x.begin(),
+                             x.begin() + static_cast<std::ptrdiff_t>(w.original_columns));
         result.dual.assign(w.original_rows, 0);
         for (std::size_t i = 0; i < w.rows; ++i) {
             result.dual[w.row_origin[i]] = w.row_sign[i] * two.y[i];

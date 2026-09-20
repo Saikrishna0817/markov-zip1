@@ -20,9 +20,12 @@ void test_simple_rounding() {
     model.row_upper = {markov_cero::model::Bound::positive_infinity()};
     model.row_name = {"R1"};
 
-    model.variable_lower = {markov_cero::model::Bound::finite(0.0), markov_cero::model::Bound::finite(0.0)};
-    model.variable_upper = {markov_cero::model::Bound::finite(5.0), markov_cero::model::Bound::finite(5.0)};
-    model.variable_type = {markov_cero::model::VariableType::integer, markov_cero::model::VariableType::integer};
+    model.variable_lower = {markov_cero::model::Bound::finite(0.0),
+                            markov_cero::model::Bound::finite(0.0)};
+    model.variable_upper = {markov_cero::model::Bound::finite(5.0),
+                            markov_cero::model::Bound::finite(5.0)};
+    model.variable_type = {markov_cero::model::VariableType::integer,
+                           markov_cero::model::VariableType::integer};
     model.variable_name = {"X1", "X2"};
     model.validate();
 
@@ -50,25 +53,21 @@ void test_feasibility_pump() {
     builder.add(1, 1, 1.0);
     model.matrix = builder.build();
 
-    model.row_lower = {markov_cero::model::Bound::negative_infinity(), markov_cero::model::Bound::negative_infinity()};
-    model.row_upper = {markov_cero::model::Bound::finite(2.0), markov_cero::model::Bound::finite(2.0)};
+    model.row_lower = {markov_cero::model::Bound::negative_infinity(),
+                       markov_cero::model::Bound::negative_infinity()};
+    model.row_upper = {markov_cero::model::Bound::finite(2.0),
+                       markov_cero::model::Bound::finite(2.0)};
     model.row_name = {"R1", "R2"};
 
-    model.variable_lower = {
-        markov_cero::model::Bound::finite(0.0),
-        markov_cero::model::Bound::finite(0.0),
-        markov_cero::model::Bound::finite(0.0)
-    };
-    model.variable_upper = {
-        markov_cero::model::Bound::finite(1.0),
-        markov_cero::model::Bound::finite(1.0),
-        markov_cero::model::Bound::finite(1.0)
-    };
-    model.variable_type = {
-        markov_cero::model::VariableType::binary,
-        markov_cero::model::VariableType::binary,
-        markov_cero::model::VariableType::binary
-    };
+    model.variable_lower = {markov_cero::model::Bound::finite(0.0),
+                            markov_cero::model::Bound::finite(0.0),
+                            markov_cero::model::Bound::finite(0.0)};
+    model.variable_upper = {markov_cero::model::Bound::finite(1.0),
+                            markov_cero::model::Bound::finite(1.0),
+                            markov_cero::model::Bound::finite(1.0)};
+    model.variable_type = {markov_cero::model::VariableType::binary,
+                           markov_cero::model::VariableType::binary,
+                           markov_cero::model::VariableType::binary};
     model.variable_name = {"X1", "X2", "X3"};
     model.validate();
 

@@ -30,7 +30,8 @@ struct NodeCompareBestBound {
             return a != nullptr;
         }
         if (a->lower_bound != b->lower_bound) {
-            return a->lower_bound > b->lower_bound; // Min-heap: smallest lower bound has highest priority
+            return a->lower_bound >
+                   b->lower_bound; // Min-heap: smallest lower bound has highest priority
         }
         return a->depth < b->depth; // Tie-breaker: deeper node first (dive)
     }

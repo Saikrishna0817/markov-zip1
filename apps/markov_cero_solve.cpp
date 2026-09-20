@@ -105,12 +105,15 @@ void usage(std::ostream& out) {
         << "  --output result.json     Write output JSON to file\n"
         << "  --engine primal|dual|pdlp|milp|parallel|auto Select solver engine (default: auto)\n"
         << "  --threads N              Worker threads for parallel tree search (default: 4)\n"
-        << "  --branching most_fractional|pseudo_cost|strong_branching|reliability Branching variable selection rule (default: pseudo_cost)\n"
+        << "  --branching most_fractional|pseudo_cost|strong_branching|reliability Branching "
+           "variable selection rule (default: pseudo_cost)\n"
         << "  --iteration-limit N      Maximum simplex iterations\n"
         << "  --max-nodes N            Maximum branch-and-cut search nodes (default: 50000)\n"
         << "  --time-limit SEC         Maximum search time limit in seconds (default: 60.0)\n"
-        << "  --cuts, --no-cuts        Enable or disable Gomory & MIR mixed-integer cuts (default: enabled)\n"
-        << "  --heuristics, --no-heuristics Enable or disable primal heuristics (default: enabled)\n"
+        << "  --cuts, --no-cuts        Enable or disable Gomory & MIR mixed-integer cuts (default: "
+           "enabled)\n"
+        << "  --heuristics, --no-heuristics Enable or disable primal heuristics (default: "
+           "enabled)\n"
         << "  --warm-start FILE        Load warm-start basis from file (dual engine)\n"
         << "  --save-basis FILE        Save optimal basis to file\n"
         << "  --presolve, --no-presolve Enable or disable presolve reductions (default: enabled)\n"
@@ -157,7 +160,9 @@ int main(int argc, char** argv) {
             engine_name = argv[++i];
             if (engine_name != "primal" && engine_name != "dual" && engine_name != "pdlp" &&
                 engine_name != "milp" && engine_name != "parallel" && engine_name != "auto") {
-                std::cerr << "invalid engine (must be primal, dual, pdlp, milp, parallel, or auto): " << engine_name << "\n";
+                std::cerr
+                    << "invalid engine (must be primal, dual, pdlp, milp, parallel, or auto): "
+                    << engine_name << "\n";
                 return 8;
             }
             continue;
@@ -180,15 +185,19 @@ int main(int argc, char** argv) {
             }
             const std::string bval = argv[++i];
             if (bval == "most_fractional") {
-                milp_options.branching_strategy = markov_cero::milp::BranchingStrategy::most_fractional;
+                milp_options.branching_strategy =
+                    markov_cero::milp::BranchingStrategy::most_fractional;
             } else if (bval == "pseudo_cost") {
                 milp_options.branching_strategy = markov_cero::milp::BranchingStrategy::pseudo_cost;
             } else if (bval == "strong_branching") {
-                milp_options.branching_strategy = markov_cero::milp::BranchingStrategy::strong_branching;
+                milp_options.branching_strategy =
+                    markov_cero::milp::BranchingStrategy::strong_branching;
             } else if (bval == "reliability") {
                 milp_options.branching_strategy = markov_cero::milp::BranchingStrategy::reliability;
             } else {
-                std::cerr << "invalid branching strategy (most_fractional, pseudo_cost, strong_branching, reliability): " << bval << "\n";
+                std::cerr << "invalid branching strategy (most_fractional, pseudo_cost, "
+                             "strong_branching, reliability): "
+                          << bval << "\n";
                 return 8;
             }
             continue;
@@ -384,9 +393,14 @@ int main(int argc, char** argv) {
                 std::string viol_desc;
                 if (!primal_report.violations.empty()) {
                     const auto& v = primal_report.violations[0];
-                    viol_desc = v.category + " idx=" + std::to_string(v.index) + " act=" + std::to_string(v.actual) + " bnd=" + std::to_string(v.bound) + " diff=" + std::to_string(v.magnitude) + " allow=" + std::to_string(v.allowance);
+                    viol_desc = v.category + " idx=" + std::to_string(v.index) +
+                                " act=" + std::to_string(v.actual) +
+                                " bnd=" + std::to_string(v.bound) +
+                                " diff=" + std::to_string(v.magnitude) +
+                                " allow=" + std::to_string(v.allowance);
                 }
-                original_message = original_verified ? "original primal verified" : ("original primal rejected: " + viol_desc);
+                original_message = original_verified ? "original primal verified"
+                                                     : ("original primal rejected: " + viol_desc);
                 if (!original_verified) {
                     result.status = markov_cero::lp::reference::SolveStatus::numerical_failure;
                     result.message = "original-model verification failed: " + viol_desc;
@@ -400,7 +414,10 @@ int main(int argc, char** argv) {
             }
         } else if (resolved_engine == "pdlp") {
             markov_cero::lp::first_order::PdlpOptions pdlp_opts;
-            pdlp_opts.max_iterations = (options.iteration_limit != 10000 && options.iteration_limit > 0) ? options.iteration_limit : 100000;
+            pdlp_opts.max_iterations =
+                (options.iteration_limit != 10000 && options.iteration_limit > 0)
+                    ? options.iteration_limit
+                    : 100000;
             pdlp_opts.primal_tolerance = 1e-4;
             pdlp_opts.dual_tolerance = 1e-4;
             pdlp_opts.gap_tolerance = 1e-4;
@@ -417,20 +434,27 @@ int main(int argc, char** argv) {
 
                 markov_cero::verify::Candidate candidate{original_primal, original_objective};
                 const markov_cero::verify::Tolerance pdlp_tol{1e-4, 1e-4};
-                primal_report = markov_cero::verify::verify_primal(model, candidate, pdlp_tol, pdlp_tol);
+                primal_report =
+                    markov_cero::verify::verify_primal(model, candidate, pdlp_tol, pdlp_tol);
                 original_verified = primal_report.passed;
                 canonical_verified = true;
                 std::string viol_desc;
                 if (!primal_report.violations.empty()) {
                     const auto& v = primal_report.violations[0];
-                    viol_desc = v.category + " idx=" + std::to_string(v.index) + " act=" + std::to_string(v.actual) + " bnd=" + std::to_string(v.bound) + " diff=" + std::to_string(v.magnitude) + " allow=" + std::to_string(v.allowance);
+                    viol_desc = v.category + " idx=" + std::to_string(v.index) +
+                                " act=" + std::to_string(v.actual) +
+                                " bnd=" + std::to_string(v.bound) +
+                                " diff=" + std::to_string(v.magnitude) +
+                                " allow=" + std::to_string(v.allowance);
                 }
-                original_message = original_verified ? "original primal verified" : ("original primal rejected: " + viol_desc);
+                original_message = original_verified ? "original primal verified"
+                                                     : ("original primal rejected: " + viol_desc);
                 if (!original_verified) {
                     result.status = markov_cero::lp::reference::SolveStatus::numerical_failure;
                     result.message = "original-model verification failed: " + viol_desc;
                 }
-            } else if (pdlp_res.status == markov_cero::lp::first_order::PdlpStatus::iteration_limit) {
+            } else if (pdlp_res.status ==
+                       markov_cero::lp::first_order::PdlpStatus::iteration_limit) {
                 result.status = markov_cero::lp::reference::SolveStatus::iteration_limit;
                 result.message = pdlp_res.message;
             } else {
@@ -464,9 +488,14 @@ int main(int argc, char** argv) {
                 std::string viol_desc;
                 if (!primal_report.violations.empty()) {
                     const auto& v = primal_report.violations[0];
-                    viol_desc = v.category + " idx=" + std::to_string(v.index) + " act=" + std::to_string(v.actual) + " bnd=" + std::to_string(v.bound) + " diff=" + std::to_string(v.magnitude) + " allow=" + std::to_string(v.allowance);
+                    viol_desc = v.category + " idx=" + std::to_string(v.index) +
+                                " act=" + std::to_string(v.actual) +
+                                " bnd=" + std::to_string(v.bound) +
+                                " diff=" + std::to_string(v.magnitude) +
+                                " allow=" + std::to_string(v.allowance);
                 }
-                original_message = original_verified ? "original primal verified" : ("original primal rejected: " + viol_desc);
+                original_message = original_verified ? "original primal verified"
+                                                     : ("original primal rejected: " + viol_desc);
                 if (!original_verified) {
                     result.status = markov_cero::lp::reference::SolveStatus::numerical_failure;
                     result.message = "original-model verification failed: " + viol_desc;
@@ -479,7 +508,8 @@ int main(int argc, char** argv) {
                 original_message = "original primal not applicable";
             }
         } else {
-            const auto sparse_canonical = markov_cero::transform::sparse_canonicalize(model, /*relax_integrality=*/true);
+            const auto sparse_canonical =
+                markov_cero::transform::sparse_canonicalize(model, /*relax_integrality=*/true);
             auto working_model = sparse_canonical;
 
             if (enable_presolve) {
@@ -524,10 +554,11 @@ int main(int argc, char** argv) {
                                 throw std::invalid_argument("cannot open warm-start basis file");
                             }
                             std::string btext((std::istreambuf_iterator<char>(bfile)),
-                                               std::istreambuf_iterator<char>());
+                                              std::istreambuf_iterator<char>());
                             warm_basis = markov_cero::lp::dual::parse_basis(btext);
                         }
-                        const auto dual_res = markov_cero::lp::dual::solve(canonical, dual_opts, warm_basis);
+                        const auto dual_res =
+                            markov_cero::lp::dual::solve(canonical, dual_opts, warm_basis);
                         result = dual_res.solution;
                         basis_to_save = dual_res.basis_state;
                         used_warm_start = dual_res.used_warm_start;
@@ -536,18 +567,22 @@ int main(int argc, char** argv) {
                         result = markov_cero::lp::reference::solve(canonical, options);
                         if (result.status == markov_cero::lp::reference::SolveStatus::optimal &&
                             result.basis.size() == canonical.matrix.rows) {
-                            basis_to_save = markov_cero::lp::dual::make_basis_state(canonical, result.basis);
+                            basis_to_save =
+                                markov_cero::lp::dual::make_basis_state(canonical, result.basis);
                         }
                     }
                 }
             }
 
-            if (scaling_applied && result.status == markov_cero::lp::reference::SolveStatus::optimal) {
+            if (scaling_applied &&
+                result.status == markov_cero::lp::reference::SolveStatus::optimal) {
                 markov_cero::scale::unscale_solution(scalers, result);
             }
 
-            if (presolve_applied && result.status == markov_cero::lp::reference::SolveStatus::optimal) {
-                result = markov_cero::presolve::postsolve(presolve_res.stack, result, sparse_canonical);
+            if (presolve_applied &&
+                result.status == markov_cero::lp::reference::SolveStatus::optimal) {
+                result =
+                    markov_cero::presolve::postsolve(presolve_res.stack, result, sparse_canonical);
             }
 
             if (result.status == markov_cero::lp::reference::SolveStatus::optimal) {
@@ -557,7 +592,8 @@ int main(int argc, char** argv) {
                     max_viol = std::max(max_viol, std::abs(Ax[i] - sparse_canonical.rhs[i]));
                 }
                 canonical_report.maximum_primal_violation = max_viol;
-                canonical_verified = (max_viol <= std::max(options.feasibility_tolerance, options.dual_tolerance));
+                canonical_verified =
+                    (max_viol <= std::max(options.feasibility_tolerance, options.dual_tolerance));
 
                 if (result.dual.size() == sparse_canonical.matrix.rows) {
                     const auto aty = sparse_canonical.multiply_transpose(result.dual);
@@ -570,7 +606,8 @@ int main(int argc, char** argv) {
                     }
                     canonical_report.maximum_dual_violation = max_dual_viol;
                     canonical_verified = canonical_verified &&
-                                         (max_dual_viol <= std::max(options.feasibility_tolerance, options.dual_tolerance));
+                                         (max_dual_viol <= std::max(options.feasibility_tolerance,
+                                                                    options.dual_tolerance));
                 }
             } else if (result.status == markov_cero::lp::reference::SolveStatus::infeasible ||
                        result.status == markov_cero::lp::reference::SolveStatus::unbounded) {
@@ -586,12 +623,15 @@ int main(int argc, char** argv) {
             }
 
             if (result.status == markov_cero::lp::reference::SolveStatus::optimal) {
-                original_primal = markov_cero::transform::reconstruct_primal(sparse_canonical, result.primal);
-                original_objective = markov_cero::transform::reconstruct_objective(sparse_canonical, result.objective);
+                original_primal =
+                    markov_cero::transform::reconstruct_primal(sparse_canonical, result.primal);
+                original_objective = markov_cero::transform::reconstruct_objective(
+                    sparse_canonical, result.objective);
                 markov_cero::verify::Candidate candidate{original_primal, original_objective};
                 primal_report = markov_cero::verify::verify_primal(model, candidate);
                 original_verified = primal_report.passed;
-                original_message = original_verified ? "original primal verified" : "original primal rejected";
+                original_message =
+                    original_verified ? "original primal verified" : "original primal rejected";
                 if (!original_verified) {
                     result.status = markov_cero::lp::reference::SolveStatus::numerical_failure;
                     result.message = "original-model verification failed";
@@ -628,35 +668,45 @@ int main(int argc, char** argv) {
     }
 
     const auto elapsed_ms =
-        std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - started).count();
-    const bool verified = (result.status == markov_cero::lp::reference::SolveStatus::optimal && original_verified &&
-                           canonical_verified) ||
+        std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - started)
+            .count();
+    const bool verified = (result.status == markov_cero::lp::reference::SolveStatus::optimal &&
+                           original_verified && canonical_verified) ||
                           ((result.status == markov_cero::lp::reference::SolveStatus::infeasible ||
                             result.status == markov_cero::lp::reference::SolveStatus::unbounded) &&
                            canonical_verified);
 
     std::ostringstream json;
-    json << "{\"version\":\"" << json_escape(std::string(markov_cero::foundation::version())) << "\","
-         << "\"milestone\":\"" << json_escape(std::string(markov_cero::foundation::milestone())) << "\","
+    json << "{\"version\":\"" << json_escape(std::string(markov_cero::foundation::version()))
+         << "\","
+         << "\"milestone\":\"" << json_escape(std::string(markov_cero::foundation::milestone()))
+         << "\","
          << "\"engine\":\"" << json_escape(resolved_engine) << "\","
          << "\"status\":\"" << markov_cero::lp::reference::to_string(result.status) << "\","
          << "\"verified\":" << (verified ? "true" : "false") << ","
          << "\"message\":\"" << json_escape(result.message) << "\","
-         << "\"objective\":" << json_number(result.status == markov_cero::lp::reference::SolveStatus::optimal
-                                                ? original_objective
-                                                : result.objective)
+         << "\"objective\":"
+         << json_number(result.status == markov_cero::lp::reference::SolveStatus::optimal
+                            ? original_objective
+                            : result.objective)
          << ","
-         << "\"primal\":" << json_array(original_primal.empty() ? result.primal : original_primal) << ","
+         << "\"primal\":" << json_array(original_primal.empty() ? result.primal : original_primal)
+         << ","
          << "\"canonical_verified\":" << (canonical_verified ? "true" : "false") << ","
          << "\"original_verified\":" << (original_verified ? "true" : "false") << ","
          << "\"original_message\":\"" << json_escape(original_message) << "\","
          << "\"used_warm_start\":" << (used_warm_start ? "true" : "false") << ","
          << "\"used_cold_fallback\":" << (used_cold_fallback ? "true" : "false") << ","
-         << "\"maximum_primal_violation\":" << json_number(primal_report.maximum_row_violation) << ","
-         << "\"maximum_variable_violation\":" << json_number(primal_report.maximum_variable_violation) << ","
-         << "\"maximum_integrality_violation\":" << json_number(primal_report.maximum_integrality_violation) << ","
-         << "\"maximum_canonical_primal_violation\":" << json_number(canonical_report.maximum_primal_violation) << ","
-         << "\"maximum_canonical_dual_violation\":" << json_number(canonical_report.maximum_dual_violation) << ","
+         << "\"maximum_primal_violation\":" << json_number(primal_report.maximum_row_violation)
+         << ","
+         << "\"maximum_variable_violation\":"
+         << json_number(primal_report.maximum_variable_violation) << ","
+         << "\"maximum_integrality_violation\":"
+         << json_number(primal_report.maximum_integrality_violation) << ","
+         << "\"maximum_canonical_primal_violation\":"
+         << json_number(canonical_report.maximum_primal_violation) << ","
+         << "\"maximum_canonical_dual_violation\":"
+         << json_number(canonical_report.maximum_dual_violation) << ","
          << "\"runtime_ms\":" << json_number(elapsed_ms) << ","
          << "\"nodes_explored\":" << nodes_explored << ","
          << "\"lp_iterations\":" << total_lp_iterations << ","
@@ -666,7 +716,8 @@ int main(int argc, char** argv) {
          << "\"heuristics_found\":" << heuristics_found << ","
          << "\"phase_one_iterations\":" << result.phase_one_iterations << ","
          << "\"phase_two_iterations\":" << result.phase_two_iterations << ","
-         << "\"limitations\":\"CPU sovereign LP and MILP Branch-and-Cut engine; GPU and QP are not implemented.\"";
+         << "\"limitations\":\"CPU sovereign LP and MILP Branch-and-Cut engine; GPU and QP are not "
+            "implemented.\"";
     if (!error.empty()) {
         json << ",\"error\":\"" << json_escape(error) << "\"";
     }
@@ -682,7 +733,8 @@ int main(int argc, char** argv) {
         output << payload;
     }
 
-    std::cerr << "markov-cero " << markov_cero::foundation::version() << " " << markov_cero::lp::reference::to_string(result.status)
+    std::cerr << "markov-cero " << markov_cero::foundation::version() << " "
+              << markov_cero::lp::reference::to_string(result.status)
               << (verified ? " VERIFIED\n" : " NOT VERIFIED\n");
     return exit_code(result.status);
 }

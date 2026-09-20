@@ -1,1 +1,0 @@
-coverage-guided fuzz passed: executions=1193224 corpus=49 discoveries=46 edge_slots=777 seconds=60

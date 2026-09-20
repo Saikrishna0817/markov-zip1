@@ -22,12 +22,7 @@ struct PdlpOptions {
     std::size_t power_iterations{20};
 };
 
-enum class PdlpStatus {
-    optimal,
-    iteration_limit,
-    infeasible_or_unbounded,
-    numerical_failure
-};
+enum class PdlpStatus { optimal, iteration_limit, infeasible_or_unbounded, numerical_failure };
 
 struct PdlpResult {
     PdlpStatus status{PdlpStatus::iteration_limit};
@@ -43,8 +38,6 @@ struct PdlpResult {
 
 // Solve an LP using matrix-free Primal-Dual Hybrid Gradient.
 // Uses only SpMV: A*x and A^T*y -- never factorizes a basis matrix.
-[[nodiscard]] PdlpResult solve_pdlp(
-    const model::Model& model,
-    const PdlpOptions& options = {});
+[[nodiscard]] PdlpResult solve_pdlp(const model::Model& model, const PdlpOptions& options = {});
 
 } // namespace markov_cero::lp::first_order

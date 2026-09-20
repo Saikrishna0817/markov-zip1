@@ -17,8 +17,7 @@ namespace markov_cero::lp::first_order {
 namespace {
 
 // Sparse matrix-vector product: y = A * x  (CSC format, row-wise accumulation)
-std::vector<double> spmv(const model::SparseMatrixCSC& A,
-                         const std::vector<double>& x) {
+std::vector<double> spmv(const model::SparseMatrixCSC& A, const std::vector<double>& x) {
     std::vector<double> y(A.row_count, 0.0);
     for (std::size_t col = 0; col < A.column_count; ++col) {
         const double xc = x[col];
@@ -33,8 +32,7 @@ std::vector<double> spmv(const model::SparseMatrixCSC& A,
 }
 
 // Sparse transpose matrix-vector product: z = A^T * y
-std::vector<double> spmv_t(const model::SparseMatrixCSC& A,
-                            const std::vector<double>& y) {
+std::vector<double> spmv_t(const model::SparseMatrixCSC& A, const std::vector<double>& y) {
     std::vector<double> z(A.column_count, 0.0);
     for (std::size_t col = 0; col < A.column_count; ++col) {
         double s = 0.0;
@@ -77,13 +75,11 @@ PdlpResult solve_pdlp(const model::Model& model, const PdlpOptions& options) {
     const std::size_t n = model.matrix.column_count;
 
     if (n == 0 || m == 0) {
-        return PdlpResult{
-            PdlpStatus::optimal, {}, {}, 0.0, 0.0, 0.0, 0.0, 0, "trivial"};
+        return PdlpResult{PdlpStatus::optimal, {}, {}, 0.0, 0.0, 0.0, 0.0, 0, "trivial"};
     }
 
     // Objective sign for minimize
-    const double obj_sign =
-        (model.objective_sense == model::ObjectiveSense::maximize) ? -1.0 : 1.0;
+    const double obj_sign = (model.objective_sense == model::ObjectiveSense::maximize) ? -1.0 : 1.0;
 
     // Effective cost vector c
     std::vector<double> c(n);
@@ -95,16 +91,19 @@ PdlpResult solve_pdlp(const model::Model& model, const PdlpOptions& options) {
     std::vector<double> b_lo(m), b_hi(m);
     for (std::size_t i = 0; i < m; ++i) {
         b_lo[i] = (model.row_lower[i].kind == model::BoundKind::negative_infinity)
-                      ? -1e300 : model.row_lower[i].value;
+                      ? -1e300
+                      : model.row_lower[i].value;
         b_hi[i] = (model.row_upper[i].kind == model::BoundKind::positive_infinity)
-                      ? +1e300 : model.row_upper[i].value;
+                      ? +1e300
+                      : model.row_upper[i].value;
     }
 
     // Diagonal preconditioning (Chambolle & Pock 2011; Applegate et al. 2021)
     std::vector<double> row_norms(m, 0.0);
     std::vector<double> col_norms(n, 0.0);
     for (std::size_t col = 0; col < n; ++col) {
-        for (std::size_t ptr = model.matrix.column_start[col]; ptr < model.matrix.column_start[col + 1]; ++ptr) {
+        for (std::size_t ptr = model.matrix.column_start[col];
+             ptr < model.matrix.column_start[col + 1]; ++ptr) {
             const double val = std::abs(model.matrix.value[ptr]);
             col_norms[col] += val;
             row_norms[model.matrix.row_index[ptr]] += val;
@@ -135,8 +134,8 @@ PdlpResult solve_pdlp(const model::Model& model, const PdlpOptions& options) {
 
     std::size_t iter = 0;
     double primal_infeas = std::numeric_limits<double>::max();
-    double dual_infeas   = std::numeric_limits<double>::max();
-    double gap_val       = std::numeric_limits<double>::max();
+    double dual_infeas = std::numeric_limits<double>::max();
+    double gap_val = std::numeric_limits<double>::max();
     std::size_t avg_count = 0;
 
     // Restart averages
@@ -158,7 +157,8 @@ PdlpResult solve_pdlp(const model::Model& model, const PdlpOptions& options) {
             x_bar[j] = 2.0 * x[j] - x_prev[j];
         }
 
-        // --- Dual Moreau Proximal update: v = y^k + sigma_i * A * x_bar; y^{k+1} = v - sigma_i * clamp(v/sigma_i, b_lo, b_hi) ---
+        // --- Dual Moreau Proximal update: v = y^k + sigma_i * A * x_bar; y^{k+1} = v - sigma_i *
+        // clamp(v/sigma_i, b_lo, b_hi) ---
         auto Ax_bar = spmv(model.matrix, x_bar);
         for (std::size_t i = 0; i < m; ++i) {
             double v = y[i] + sigma[i] * Ax_bar[i];
@@ -197,9 +197,11 @@ PdlpResult solve_pdlp(const model::Model& model, const PdlpOptions& options) {
             for (std::size_t j = 0; j < n; ++j) {
                 double g = c[j] + At_y_avg[j];
                 double xl = (model.variable_lower[j].kind == model::BoundKind::negative_infinity)
-                                ? -1e300 : model.variable_lower[j].value;
+                                ? -1e300
+                                : model.variable_lower[j].value;
                 double xu = (model.variable_upper[j].kind == model::BoundKind::positive_infinity)
-                                ? +1e300 : model.variable_upper[j].value;
+                                ? +1e300
+                                : model.variable_upper[j].value;
                 double projected_g = g;
                 if (x_avg[j] <= xl + 1e-6) {
                     projected_g = std::min(0.0, g);
@@ -213,7 +215,7 @@ PdlpResult solve_pdlp(const model::Model& model, const PdlpOptions& options) {
 
             // Duality gap
             double primal_obj = dot(c, x_avg) + model.objective_offset;
-            double dual_obj   = model.objective_offset;
+            double dual_obj = model.objective_offset;
             for (std::size_t i = 0; i < m; ++i) {
                 if (y_avg[i] > 0.0 && b_hi[i] < 1e299) {
                     dual_obj -= y_avg[i] * b_hi[i];
@@ -224,55 +226,55 @@ PdlpResult solve_pdlp(const model::Model& model, const PdlpOptions& options) {
             for (std::size_t j = 0; j < n; ++j) {
                 double g = c[j] + At_y_avg[j];
                 double xl = (model.variable_lower[j].kind == model::BoundKind::negative_infinity)
-                                ? -1e300 : model.variable_lower[j].value;
+                                ? -1e300
+                                : model.variable_lower[j].value;
                 double xu = (model.variable_upper[j].kind == model::BoundKind::positive_infinity)
-                                ? +1e300 : model.variable_upper[j].value;
+                                ? +1e300
+                                : model.variable_upper[j].value;
                 if (g > 0.0 && xl > -1e299) {
                     dual_obj += g * xl;
                 } else if (g < 0.0 && xu < 1e299) {
                     dual_obj += g * xu;
                 }
             }
-            gap_val = std::abs(primal_obj - dual_obj) /
-                      std::max(1.0, std::abs(primal_obj));
+            gap_val = std::abs(primal_obj - dual_obj) / std::max(1.0, std::abs(primal_obj));
 
-            if (primal_infeas <= options.primal_tolerance
-                && dual_infeas <= options.dual_tolerance
-                && gap_val <= options.gap_tolerance) {
+            if (primal_infeas <= options.primal_tolerance &&
+                dual_infeas <= options.dual_tolerance && gap_val <= options.gap_tolerance) {
                 // Convergence!
                 double final_obj = dot(model.objective, x_avg) + model.objective_offset;
                 PdlpResult res;
-                res.status              = PdlpStatus::optimal;
-                res.primal              = x_avg;
-                res.dual                = y_avg;
-                res.objective           = final_obj;
+                res.status = PdlpStatus::optimal;
+                res.primal = x_avg;
+                res.dual = y_avg;
+                res.objective = final_obj;
                 res.primal_infeasibility = primal_infeas;
-                res.dual_infeasibility  = dual_infeas;
-                res.duality_gap         = gap_val;
-                res.iterations          = iter;
-                res.message             = "PDLP converged";
+                res.dual_infeasibility = dual_infeas;
+                res.duality_gap = gap_val;
+                res.iterations = iter;
+                res.message = "PDLP converged";
                 return res;
             }
 
             // Adaptive restart: reset averages if stagnated
             x_restart = x_avg;
-            y_restart  = y_avg;
-            avg_count  = 0;
+            y_restart = y_avg;
+            avg_count = 0;
         }
     }
 
     // Return best ergodic iterate even if not converged
     double final_obj = dot(model.objective, x_avg) + model.objective_offset;
     PdlpResult res;
-    res.status               = PdlpStatus::iteration_limit;
-    res.primal               = x_avg;
-    res.dual                 = y_avg;
-    res.objective            = final_obj;
+    res.status = PdlpStatus::iteration_limit;
+    res.primal = x_avg;
+    res.dual = y_avg;
+    res.objective = final_obj;
     res.primal_infeasibility = primal_infeas;
-    res.dual_infeasibility   = dual_infeas;
-    res.duality_gap          = gap_val;
-    res.iterations           = iter;
-    res.message              = "iteration limit reached";
+    res.dual_infeasibility = dual_infeas;
+    res.duality_gap = gap_val;
+    res.iterations = iter;
+    res.message = "iteration limit reached";
     return res;
 }
 

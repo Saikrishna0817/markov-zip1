@@ -33,21 +33,15 @@ void test_knapsack_01() {
     model.row_upper = {markov_cero::model::Bound::finite(10.0)};
     model.row_name = {"CAPACITY"};
 
-    model.variable_lower = {
-        markov_cero::model::Bound::finite(0.0),
-        markov_cero::model::Bound::finite(0.0),
-        markov_cero::model::Bound::finite(0.0)
-    };
-    model.variable_upper = {
-        markov_cero::model::Bound::finite(1.0),
-        markov_cero::model::Bound::finite(1.0),
-        markov_cero::model::Bound::finite(1.0)
-    };
-    model.variable_type = {
-        markov_cero::model::VariableType::binary,
-        markov_cero::model::VariableType::binary,
-        markov_cero::model::VariableType::binary
-    };
+    model.variable_lower = {markov_cero::model::Bound::finite(0.0),
+                            markov_cero::model::Bound::finite(0.0),
+                            markov_cero::model::Bound::finite(0.0)};
+    model.variable_upper = {markov_cero::model::Bound::finite(1.0),
+                            markov_cero::model::Bound::finite(1.0),
+                            markov_cero::model::Bound::finite(1.0)};
+    model.variable_type = {markov_cero::model::VariableType::binary,
+                           markov_cero::model::VariableType::binary,
+                           markov_cero::model::VariableType::binary};
     model.variable_name = {"X1", "X2", "X3"};
     model.validate();
 
@@ -97,28 +91,18 @@ void test_refinery_discrete_dispatch() {
     builder.add(1, 1, 2.0);
     model.matrix = builder.build();
 
-    model.row_lower = {
-        markov_cero::model::Bound::finite(3.0),
-        markov_cero::model::Bound::negative_infinity()
-    };
-    model.row_upper = {
-        markov_cero::model::Bound::positive_infinity(),
-        markov_cero::model::Bound::finite(8.0)
-    };
+    model.row_lower = {markov_cero::model::Bound::finite(3.0),
+                       markov_cero::model::Bound::negative_infinity()};
+    model.row_upper = {markov_cero::model::Bound::positive_infinity(),
+                       markov_cero::model::Bound::finite(8.0)};
     model.row_name = {"MIN_BATCHES", "MAX_PIPELINE_HOURS"};
 
-    model.variable_lower = {
-        markov_cero::model::Bound::finite(0.0),
-        markov_cero::model::Bound::finite(0.0)
-    };
-    model.variable_upper = {
-        markov_cero::model::Bound::finite(5.0),
-        markov_cero::model::Bound::finite(5.0)
-    };
-    model.variable_type = {
-        markov_cero::model::VariableType::integer,
-        markov_cero::model::VariableType::integer
-    };
+    model.variable_lower = {markov_cero::model::Bound::finite(0.0),
+                            markov_cero::model::Bound::finite(0.0)};
+    model.variable_upper = {markov_cero::model::Bound::finite(5.0),
+                            markov_cero::model::Bound::finite(5.0)};
+    model.variable_type = {markov_cero::model::VariableType::integer,
+                           markov_cero::model::VariableType::integer};
     model.variable_name = {"TANKER_A", "TANKER_B"};
     model.validate();
 
@@ -151,28 +135,18 @@ void test_infeasible_milp() {
     builder.add(1, 1, 1.0);
     model.matrix = builder.build();
 
-    model.row_lower = {
-        markov_cero::model::Bound::negative_infinity(),
-        markov_cero::model::Bound::finite(2.0)
-    };
-    model.row_upper = {
-        markov_cero::model::Bound::finite(1.0),
-        markov_cero::model::Bound::positive_infinity()
-    };
+    model.row_lower = {markov_cero::model::Bound::negative_infinity(),
+                       markov_cero::model::Bound::finite(2.0)};
+    model.row_upper = {markov_cero::model::Bound::finite(1.0),
+                       markov_cero::model::Bound::positive_infinity()};
     model.row_name = {"R1", "R2"};
 
-    model.variable_lower = {
-        markov_cero::model::Bound::finite(0.0),
-        markov_cero::model::Bound::finite(0.0)
-    };
-    model.variable_upper = {
-        markov_cero::model::Bound::finite(1.0),
-        markov_cero::model::Bound::finite(1.0)
-    };
-    model.variable_type = {
-        markov_cero::model::VariableType::binary,
-        markov_cero::model::VariableType::binary
-    };
+    model.variable_lower = {markov_cero::model::Bound::finite(0.0),
+                            markov_cero::model::Bound::finite(0.0)};
+    model.variable_upper = {markov_cero::model::Bound::finite(1.0),
+                            markov_cero::model::Bound::finite(1.0)};
+    model.variable_type = {markov_cero::model::VariableType::binary,
+                           markov_cero::model::VariableType::binary};
     model.variable_name = {"X1", "X2"};
     model.validate();
 

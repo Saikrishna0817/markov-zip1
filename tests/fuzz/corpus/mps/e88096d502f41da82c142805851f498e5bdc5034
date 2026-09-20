@@ -1,8 +1,0 @@
-NAME          TINYLP
-ROWS
- N  COST
- L  R1
-COLUMNS
-    X         COST       -1.0        R1         1.0
-    Y       COST                   4.0
-ENDATA

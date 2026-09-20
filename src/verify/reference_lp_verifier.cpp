@@ -88,14 +88,16 @@ ReferenceVerification verify_reference_result(const transform::CanonicalModel& m
                 for (std::size_t i = 0; i < m.matrix.rows; ++i) {
                     col_norm += std::abs(m.matrix(i, j));
                 }
-                const double c_scale = std::max(col_scale(m.matrix, j, r.dual, m.objective[j]), col_norm * max_cost);
+                const double c_scale =
+                    std::max(col_scale(m.matrix, j, r.dual, m.objective[j]), col_norm * max_cost);
                 double rc = m.objective[j] - aty[j], e = std::max(0.0, -rc);
                 v.maximum_dual_violation = std::max(v.maximum_dual_violation, e);
                 dok = dok && e <= allowed(c_scale, tol);
                 double comp = std::abs(r.primal[j] * rc);
                 v.maximum_complementarity_violation =
                     std::max(v.maximum_complementarity_violation, comp);
-                const double comp_scale = std::max(1.0, std::abs(r.primal[j])) * std::max(1.0, c_scale);
+                const double comp_scale =
+                    std::max(1.0, std::abs(r.primal[j])) * std::max(1.0, c_scale);
                 cok = cok && comp <= allowed(comp_scale, tol);
             }
             double po = dot(m.objective, r.primal) + m.objective_offset,

@@ -44,26 +44,20 @@ struct StrongBranchingResult {
     bool subproblem_infeasible{false};
 };
 
-[[nodiscard]] double compute_strong_branching_score(
-    double delta_down,
-    double delta_up,
-    double mu = 0.16) noexcept;
+[[nodiscard]] double compute_strong_branching_score(double delta_down, double delta_up,
+                                                    double mu = 0.16) noexcept;
 
 [[nodiscard]] StrongBranchingResult evaluate_strong_branching(
-    const model::Model& model,
-    const std::vector<double>& primal,
-    double current_obj,
+    const model::Model& model, const std::vector<double>& primal, double current_obj,
     const std::optional<lp::dual::BasisState>& current_basis,
-    const std::vector<std::size_t>& candidate_indices,
-    const StrongBranchingOptions& options = {},
+    const std::vector<std::size_t>& candidate_indices, const StrongBranchingOptions& options = {},
     std::vector<VariablePseudoCost>* pseudo_costs = nullptr);
 
-[[nodiscard]] StrongBranchingResult evaluate_strong_branching(
-    const model::Model& model,
-    const std::vector<double>& primal,
-    double current_obj,
-    const std::optional<lp::dual::BasisState>& current_basis,
-    const StrongBranchingOptions& options = {},
-    std::vector<VariablePseudoCost>* pseudo_costs = nullptr);
+[[nodiscard]] StrongBranchingResult
+evaluate_strong_branching(const model::Model& model, const std::vector<double>& primal,
+                          double current_obj,
+                          const std::optional<lp::dual::BasisState>& current_basis,
+                          const StrongBranchingOptions& options = {},
+                          std::vector<VariablePseudoCost>* pseudo_costs = nullptr);
 
 } // namespace markov_cero::milp

@@ -39,10 +39,9 @@ struct PresolveResult {
 [[nodiscard]] PresolveResult presolve(const transform::SparseCanonicalModel& input,
                                       const PresolveOptions& options = {});
 
-[[nodiscard]] lp::reference::Result postsolve(
-    const PresolveStack& stack,
-    const lp::reference::Result& reduced_solution,
-    const transform::SparseCanonicalModel& original_model,
-    double tolerance = 1e-8);
+[[nodiscard]] lp::reference::Result postsolve(const PresolveStack& stack,
+                                              const lp::reference::Result& reduced_solution,
+                                              const transform::SparseCanonicalModel& original_model,
+                                              double tolerance = 1e-8);
 
 } // namespace markov_cero::presolve

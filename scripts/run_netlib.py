@@ -94,6 +94,13 @@ NETLIB_BENCHMARKS = {
 
 BASE_URL = "https://raw.githubusercontent.com/coin-or-tools/Data-Netlib/master"
 
+OFFLINE_INSTANCES = [
+    "afiro", "adlittle", "sc50a", "sc50b", "sc105", "share2b", "recipe"
+]
+EXTENDED_INSTANCES = [
+    "sc205", "share1b", "scagr7", "beaconfd", "scorpion"
+]
+
 
 def find_solver_binary() -> Optional[str]:
     candidates = [
@@ -188,8 +195,8 @@ def main():
     )
     parser.add_argument(
         "--output",
-        default="evidence/netlib_results.csv",
-        help="Output CSV path (default: evidence/netlib_results.csv)",
+        default=None,
+        help="Output CSV path (default: netlib_results.csv or netlib_extended.csv)",
     )
     parser.add_argument(
         "--engine",
@@ -204,24 +211,46 @@ def main():
         help="Relative objective tolerance for verification (default: 1e-5)",
     )
     parser.add_argument(
+        "--extended",
+        action="store_true",
+        help="Run extended benchmark set (requires network/large instances)",
+    )
+    parser.add_argument(
         "--instances",
         nargs="+",
-        default=list(NETLIB_BENCHMARKS.keys()),
+        default=None,
         help="Subset of instances to run",
     )
     args = parser.parse_args()
 
+    if args.instances is not None:
+        target_instances = args.instances
+        default_output = (
+            "evidence/netlib_extended.csv" if args.extended else "evidence/netlib_results.csv"
+        )
+    elif args.extended:
+        target_instances = EXTENDED_INSTANCES
+        default_output = "evidence/netlib_extended.csv"
+    else:
+        target_instances = OFFLINE_INSTANCES
+        default_output = "evidence/netlib_results.csv"
+
+    output_path = args.output or default_output
+
     solver = args.solver or find_solver_binary()
     if not solver:
-        print("[-] Error: markov-cero-solve executable not found. Build the project first.", file=sys.stderr)
+        print(
+            "[-] Error: markov-cero-solve executable not found. Build the project first.",
+            file=sys.stderr,
+        )
         sys.exit(1)
 
     print(f"=== markov-cero Netlib Benchmark Suite ===")
     print(f"Solver:    {solver}")
     print(f"Engine:    {args.engine}")
     print(f"Data dir:  {args.data_dir}")
-    print(f"Output:    {args.output}")
-    print(f"Instances: {len(args.instances)}")
+    print(f"Output:    {output_path}")
+    print(f"Instances: {len(target_instances)}")
     print("=" * 105)
 
     results = []
@@ -237,7 +266,7 @@ def main():
     )
     print("-" * 105)
 
-    for name in args.instances:
+    for name in target_instances:
         if name not in NETLIB_BENCHMARKS:
             print(f"[!] Warning: Unknown instance {name}, skipping.")
             continue
@@ -309,18 +338,20 @@ def main():
             "max_dual_violation": res.get("maximum_canonical_dual_violation", 0.0),
             "pass": verdict == "PASS",
         }
+        if args.extended or "extended" in output_path:
+            record["reproducibility"] = "requires network"
         results.append(record)
 
     print("-" * 105)
 
     # Save CSV
-    os.makedirs(os.path.dirname(os.path.abspath(args.output)), exist_ok=True)
-    with open(args.output, "w", newline="") as f:
+    os.makedirs(os.path.dirname(os.path.abspath(output_path)), exist_ok=True)
+    with open(output_path, "w", newline="") as f:
         writer = csv.DictWriter(f, fieldnames=list(results[0].keys()))
         writer.writeheader()
         writer.writerows(results)
 
-    print(f"\n[+] Results written to {args.output}")
+    print(f"\n[+] Results written to {output_path}")
     passed_count = sum(1 for r in results if r["pass"])
     print(f"[+] Summary: {passed_count}/{len(results)} Netlib benchmark problems passed.")
 

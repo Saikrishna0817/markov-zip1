@@ -109,12 +109,15 @@ void test_blend_with_presolve_matches_without_presolve() {
         sol_reduced.status = markov_cero::lp::reference::SolveStatus::optimal;
     }
 
-    const auto sol_postsolved = markov_cero::presolve::postsolve(presolved.stack, sol_reduced, sparse);
+    const auto sol_postsolved =
+        markov_cero::presolve::postsolve(presolved.stack, sol_reduced, sparse);
     assert(std::abs(sol_postsolved.objective - sol_unpresolved.objective) < 1e-7);
 
     // Verify primal variables reconstructed
-    auto prim_orig_presolved = markov_cero::transform::reconstruct_primal(sparse, sol_postsolved.primal);
-    auto prim_orig_unpresolved = markov_cero::transform::reconstruct_primal(sparse, sol_unpresolved.primal);
+    auto prim_orig_presolved =
+        markov_cero::transform::reconstruct_primal(sparse, sol_postsolved.primal);
+    auto prim_orig_unpresolved =
+        markov_cero::transform::reconstruct_primal(sparse, sol_unpresolved.primal);
     for (std::size_t j = 0; j < prim_orig_presolved.size(); ++j) {
         assert(std::abs(prim_orig_presolved[j] - prim_orig_unpresolved[j]) < 1e-6);
     }

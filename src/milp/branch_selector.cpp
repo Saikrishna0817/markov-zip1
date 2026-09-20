@@ -35,10 +35,9 @@ void VariablePseudoCost::record_up(double delta_obj, double fraction) noexcept {
     }
 }
 
-std::vector<std::size_t> find_fractional_variables(
-    const std::vector<double>& primal,
-    const std::vector<model::VariableType>& types,
-    double integrality_tol) {
+std::vector<std::size_t> find_fractional_variables(const std::vector<double>& primal,
+                                                   const std::vector<model::VariableType>& types,
+                                                   double integrality_tol) {
     std::vector<std::size_t> candidates;
     const std::size_t n = std::min(primal.size(), types.size());
     for (std::size_t j = 0; j < n; ++j) {
@@ -57,9 +56,8 @@ std::vector<std::size_t> find_fractional_variables(
     return candidates;
 }
 
-std::size_t select_most_fractional(
-    const std::vector<double>& primal,
-    const std::vector<std::size_t>& candidates) {
+std::size_t select_most_fractional(const std::vector<double>& primal,
+                                   const std::vector<std::size_t>& candidates) {
     if (candidates.empty()) {
         throw std::invalid_argument("candidates list is empty in select_most_fractional");
     }
@@ -79,10 +77,9 @@ std::size_t select_most_fractional(
     return best_var;
 }
 
-std::size_t select_pseudo_cost(
-    const std::vector<double>& primal,
-    const std::vector<std::size_t>& candidates,
-    const std::vector<VariablePseudoCost>& pseudo_costs) {
+std::size_t select_pseudo_cost(const std::vector<double>& primal,
+                               const std::vector<std::size_t>& candidates,
+                               const std::vector<VariablePseudoCost>& pseudo_costs) {
     if (candidates.empty()) {
         throw std::invalid_argument("candidates list is empty in select_pseudo_cost");
     }
@@ -143,12 +140,10 @@ std::size_t select_pseudo_cost(
     return best_var;
 }
 
-std::size_t select_branching_variable(
-    const std::vector<double>& primal,
-    const std::vector<model::VariableType>& types,
-    const std::vector<VariablePseudoCost>& pseudo_costs,
-    BranchingStrategy strategy,
-    double integrality_tol) {
+std::size_t select_branching_variable(const std::vector<double>& primal,
+                                      const std::vector<model::VariableType>& types,
+                                      const std::vector<VariablePseudoCost>& pseudo_costs,
+                                      BranchingStrategy strategy, double integrality_tol) {
     const auto candidates = find_fractional_variables(primal, types, integrality_tol);
     if (candidates.empty()) {
         return types.size(); // None fractional

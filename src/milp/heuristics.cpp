@@ -9,11 +9,8 @@
 
 namespace markov_cero::milp {
 
-bool check_integer_feasibility(
-    const model::Model& model,
-    const std::vector<double>& primal,
-    double feasibility_tol,
-    double integrality_tol) {
+bool check_integer_feasibility(const model::Model& model, const std::vector<double>& primal,
+                               double feasibility_tol, double integrality_tol) {
     if (primal.size() != model.matrix.column_count) {
         return false;
     }
@@ -63,9 +60,7 @@ bool check_integer_feasibility(
     return true;
 }
 
-double compute_objective(
-    const model::Model& model,
-    const std::vector<double>& primal) {
+double compute_objective(const model::Model& model, const std::vector<double>& primal) {
     long double obj = model.objective_offset;
     const std::size_t n = std::min(primal.size(), model.objective.size());
     for (std::size_t j = 0; j < n; ++j) {
@@ -74,11 +69,9 @@ double compute_objective(
     return static_cast<double>(obj);
 }
 
-HeuristicResult simple_rounding(
-    const model::Model& model,
-    const std::vector<double>& continuous_primal,
-    double feasibility_tol,
-    double integrality_tol) {
+HeuristicResult simple_rounding(const model::Model& model,
+                                const std::vector<double>& continuous_primal,
+                                double feasibility_tol, double integrality_tol) {
     HeuristicResult result;
     if (continuous_primal.size() != model.matrix.column_count) {
         return result;
@@ -147,12 +140,10 @@ HeuristicResult simple_rounding(
     return result;
 }
 
-HeuristicResult feasibility_pump(
-    const model::Model& model,
-    const std::vector<double>& continuous_primal,
-    std::size_t max_iterations,
-    double feasibility_tol,
-    double integrality_tol) {
+HeuristicResult feasibility_pump(const model::Model& model,
+                                 const std::vector<double>& continuous_primal,
+                                 std::size_t max_iterations, double feasibility_tol,
+                                 double integrality_tol) {
     HeuristicResult result;
     if (continuous_primal.size() != model.matrix.column_count) {
         return result;
@@ -227,14 +218,19 @@ HeuristicResult feasibility_pump(
             const std::size_t flip_count = std::min<std::size_t>(3, ambig.size());
             for (std::size_t k = 0; k < flip_count; ++k) {
                 const std::size_t flip_j = ambig[k].second;
-                const double lo = model.variable_lower[flip_j].is_finite() ? model.variable_lower[flip_j].value : 0.0;
-                const double up = model.variable_upper[flip_j].is_finite() ? model.variable_upper[flip_j].value : 1.0;
+                const double lo = model.variable_lower[flip_j].is_finite()
+                                      ? model.variable_lower[flip_j].value
+                                      : 0.0;
+                const double up = model.variable_upper[flip_j].is_finite()
+                                      ? model.variable_upper[flip_j].value
+                                      : 1.0;
                 if (std::abs(up - lo - 1.0) < 1e-4) {
                     // Binary flip
                     rounded_x[flip_j] = (rounded_x[flip_j] <= lo + 1e-4) ? up : lo;
                 } else {
                     // General integer shift away from round direction
-                    if (current_lp_x[flip_j] > rounded_x[flip_j] && rounded_x[flip_j] + 1.0 <= up + 1e-4) {
+                    if (current_lp_x[flip_j] > rounded_x[flip_j] &&
+                        rounded_x[flip_j] + 1.0 <= up + 1e-4) {
                         rounded_x[flip_j] += 1.0;
                     } else if (rounded_x[flip_j] - 1.0 >= lo - 1e-4) {
                         rounded_x[flip_j] -= 1.0;
@@ -246,7 +242,8 @@ HeuristicResult feasibility_pump(
 
         // 2. Set up distance-minimization LP
         // min sum_{j in I} |x_j - x_tilde_j|
-        // For binary/bounded: if x_tilde == lower, cost = +1; if x_tilde == upper, cost = -1; else +1 / -1
+        // For binary/bounded: if x_tilde == lower, cost = +1; if x_tilde == upper, cost = -1; else
+        // +1 / -1
         model::Model pump_model = model;
         pump_model.objective.assign(model.matrix.column_count, 0.0);
         pump_model.objective_offset = 0.0;
@@ -255,8 +252,10 @@ HeuristicResult feasibility_pump(
         for (std::size_t j = 0; j < model.matrix.column_count; ++j) {
             if (model.variable_type[j] != model::VariableType::continuous) {
                 const double x_tilde = rounded_x[j];
-                const double lo = model.variable_lower[j].is_finite() ? model.variable_lower[j].value : 0.0;
-                const double up = model.variable_upper[j].is_finite() ? model.variable_upper[j].value : 1.0;
+                const double lo =
+                    model.variable_lower[j].is_finite() ? model.variable_lower[j].value : 0.0;
+                const double up =
+                    model.variable_upper[j].is_finite() ? model.variable_upper[j].value : 1.0;
                 if (x_tilde <= lo + 1e-4) {
                     pump_model.objective[j] = 1.0;
                 } else if (x_tilde >= up - 1e-4) {
@@ -268,7 +267,8 @@ HeuristicResult feasibility_pump(
         }
 
         try {
-            const auto canon = transform::sparse_canonicalize(pump_model, /*relax_integrality=*/true);
+            const auto canon =
+                transform::sparse_canonicalize(pump_model, /*relax_integrality=*/true);
             const auto dense = canon.to_dense();
             lp::reference::Options popts;
             popts.iteration_limit = 5000;

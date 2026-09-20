@@ -67,14 +67,14 @@ void test_blend_scaled_matches_unscaled() {
     // Unscaled solve
     const auto dense_unscaled = sparse.to_dense();
     const auto sol_unscaled = markov_cero::lp::reference::solve(dense_unscaled);
-    assert(sol_unscaled.status == lp::reference::SolveStatus::optimal);
+    assert(sol_unscaled.status == markov_cero::lp::reference::SolveStatus::optimal);
 
     // Scaled solve
     auto sparse_scaled = sparse;
     const auto scalers = markov_cero::scale::equilibrate(sparse_scaled);
     const auto dense_scaled = sparse_scaled.to_dense();
     auto sol_scaled = markov_cero::lp::reference::solve(dense_scaled);
-    assert(sol_scaled.status == lp::reference::SolveStatus::optimal);
+    assert(sol_scaled.status == markov_cero::lp::reference::SolveStatus::optimal);
 
     // Unscale solution
     markov_cero::scale::unscale_solution(scalers, sol_scaled);

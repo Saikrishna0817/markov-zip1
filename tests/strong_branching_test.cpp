@@ -1,7 +1,7 @@
-#include "markov_cero/milp/strong_branching.hpp"
-#include "markov_cero/milp/cuts.hpp"
 #include "markov_cero/lp/dual/dual_simplex.hpp"
 #include "markov_cero/lp/reference/revised_simplex.hpp"
+#include "markov_cero/milp/cuts.hpp"
+#include "markov_cero/milp/strong_branching.hpp"
 #include "markov_cero/transform/sparse_canonical_model.hpp"
 #include "markov_cero/verify/primal_verifier.hpp"
 
@@ -83,7 +83,8 @@ void test_cut_efficacy_and_filtering() {
     cut_low_violation.violation = 1e-7;
 
     std::vector<markov_cero::milp::Cut> pool = {cut_x, cut_x_parallel, cut_y, cut_low_violation};
-    auto filtered = markov_cero::milp::filter_cuts(pool, /*max_cuts=*/10, /*min_violation=*/1e-4, /*max_parallelism=*/0.95);
+    auto filtered = markov_cero::milp::filter_cuts(pool, /*max_cuts=*/10, /*min_violation=*/1e-4,
+                                                   /*max_parallelism=*/0.95);
 
     // cut_low_violation (< 1e-4) should be discarded
     // cut_x_parallel should be discarded because it is parallel to cut_x (> 0.95)
@@ -115,46 +116,42 @@ void test_mir_cuts_tighten_relaxation_and_preserve_integers() {
     model.row_upper = {markov_cero::model::Bound::finite(10.0)};
     model.row_name = {"CAPACITY"};
 
-    model.variable_lower = {
-        markov_cero::model::Bound::finite(0.0),
-        markov_cero::model::Bound::finite(0.0),
-        markov_cero::model::Bound::finite(0.0)
-    };
-    model.variable_upper = {
-        markov_cero::model::Bound::finite(1.0),
-        markov_cero::model::Bound::finite(1.0),
-        markov_cero::model::Bound::finite(1.0)
-    };
-    model.variable_type = {
-        markov_cero::model::VariableType::binary,
-        markov_cero::model::VariableType::binary,
-        markov_cero::model::VariableType::binary
-    };
+    model.variable_lower = {markov_cero::model::Bound::finite(0.0),
+                            markov_cero::model::Bound::finite(0.0),
+                            markov_cero::model::Bound::finite(0.0)};
+    model.variable_upper = {markov_cero::model::Bound::finite(1.0),
+                            markov_cero::model::Bound::finite(1.0),
+                            markov_cero::model::Bound::finite(1.0)};
+    model.variable_type = {markov_cero::model::VariableType::binary,
+                           markov_cero::model::VariableType::binary,
+                           markov_cero::model::VariableType::binary};
     model.variable_name = {"X1", "X2", "X3"};
     model.validate();
 
     // 1. Solve root LP relaxation
-    const auto canon = markov_cero::transform::sparse_canonicalize(model, /*relax_integrality=*/true);
+    const auto canon =
+        markov_cero::transform::sparse_canonicalize(model, /*relax_integrality=*/true);
     const auto dense = canon.to_dense();
     const auto lpres = markov_cero::lp::reference::solve(dense);
     assert(lpres.status == markov_cero::lp::reference::SolveStatus::optimal);
 
     const auto primal = markov_cero::transform::reconstruct_primal(canon, lpres.primal);
-    const double initial_relaxation_obj = markov_cero::transform::reconstruct_objective(canon, lpres.objective);
+    const double initial_relaxation_obj =
+        markov_cero::transform::reconstruct_objective(canon, lpres.objective);
     const auto basis_state = markov_cero::lp::dual::make_basis_state(dense, lpres.basis);
 
     // 2. Generate MIR cuts
-    const auto mir_cuts = markov_cero::milp::generate_mir_cuts(model, primal, canon, basis_state, /*max_cuts=*/5);
+    const auto mir_cuts =
+        markov_cero::milp::generate_mir_cuts(model, primal, canon, basis_state, /*max_cuts=*/5);
     assert(!mir_cuts.empty());
 
-    // 3. Verify cuts strictly cut off fractional relaxation point and do NOT cut off any integer feasible solutions
+    // 3. Verify cuts strictly cut off fractional relaxation point and do NOT cut off any integer
+    // feasible solutions
     const std::vector<std::vector<double>> integer_feasible_points = {
-        {0.0, 0.0, 0.0},
-        {1.0, 0.0, 0.0},
-        {0.0, 1.0, 0.0},
-        {0.0, 0.0, 1.0},
-        {1.0, 1.0, 0.0}, // Capacity: 4*1 + 6*1 = 10 <= 10 (Integer optimum, obj = -24)
-        {1.0, 0.0, 1.0}  // Capacity: 4*1 + 5*1 = 9 <= 10
+        {0.0, 0.0, 0.0}, {1.0, 0.0, 0.0}, {0.0, 1.0, 0.0},
+        {0.0, 0.0, 1.0}, {1.0, 1.0, 0.0}, // Capacity: 4*1 + 6*1 = 10 <= 10 (Integer optimum, obj =
+                                          // -24)
+        {1.0, 0.0, 1.0}                   // Capacity: 4*1 + 5*1 = 9 <= 10
     };
 
     for (const auto& cut : mir_cuts) {
@@ -174,14 +171,17 @@ void test_mir_cuts_tighten_relaxation_and_preserve_integers() {
     auto cut_model = model;
     markov_cero::milp::add_cuts_to_model(cut_model, mir_cuts);
 
-    const auto cut_canon = markov_cero::transform::sparse_canonicalize(cut_model, /*relax_integrality=*/true);
+    const auto cut_canon =
+        markov_cero::transform::sparse_canonicalize(cut_model, /*relax_integrality=*/true);
     const auto cut_dense = cut_canon.to_dense();
     const auto cut_lpres = markov_cero::lp::reference::solve(cut_dense);
     assert(cut_lpres.status == markov_cero::lp::reference::SolveStatus::optimal);
 
-    const double tightened_obj = markov_cero::transform::reconstruct_objective(cut_canon, cut_lpres.objective);
+    const double tightened_obj =
+        markov_cero::transform::reconstruct_objective(cut_canon, cut_lpres.objective);
 
-    // For minimization, adding valid cuts increases the lower bound (tightens relaxation towards -24.0)
+    // For minimization, adding valid cuts increases the lower bound (tightens relaxation towards
+    // -24.0)
     assert(tightened_obj >= initial_relaxation_obj - 1e-6);
     std::cout << "[+] test_mir_cuts_tighten_relaxation_and_preserve_integers passed: "
               << "initial relaxation obj=" << initial_relaxation_obj
@@ -209,36 +209,27 @@ void test_strong_branching_and_domain_reduction() {
     builder.add(1, 2, 0.1);
     model.matrix = builder.build();
 
-    model.row_lower = {
-        markov_cero::model::Bound::finite(1.5),
-        markov_cero::model::Bound::negative_infinity()
-    };
-    model.row_upper = {
-        markov_cero::model::Bound::positive_infinity(),
-        markov_cero::model::Bound::finite(2.0)
-    };
+    model.row_lower = {markov_cero::model::Bound::finite(1.5),
+                       markov_cero::model::Bound::negative_infinity()};
+    model.row_upper = {markov_cero::model::Bound::positive_infinity(),
+                       markov_cero::model::Bound::finite(2.0)};
     model.row_name = {"ROW_LOWER", "ROW_UPPER"};
 
-    model.variable_lower = {
-        markov_cero::model::Bound::finite(0.0),
-        markov_cero::model::Bound::finite(0.0),
-        markov_cero::model::Bound::finite(0.0)
-    };
-    model.variable_upper = {
-        markov_cero::model::Bound::finite(1.0),
-        markov_cero::model::Bound::finite(1.0),
-        markov_cero::model::Bound::finite(1.0)
-    };
-    model.variable_type = {
-        markov_cero::model::VariableType::binary,
-        markov_cero::model::VariableType::binary,
-        markov_cero::model::VariableType::binary
-    };
+    model.variable_lower = {markov_cero::model::Bound::finite(0.0),
+                            markov_cero::model::Bound::finite(0.0),
+                            markov_cero::model::Bound::finite(0.0)};
+    model.variable_upper = {markov_cero::model::Bound::finite(1.0),
+                            markov_cero::model::Bound::finite(1.0),
+                            markov_cero::model::Bound::finite(1.0)};
+    model.variable_type = {markov_cero::model::VariableType::binary,
+                           markov_cero::model::VariableType::binary,
+                           markov_cero::model::VariableType::binary};
     model.variable_name = {"X1", "X2", "X3"};
     model.validate();
 
     // Solve root continuous LP
-    const auto canon = markov_cero::transform::sparse_canonicalize(model, /*relax_integrality=*/true);
+    const auto canon =
+        markov_cero::transform::sparse_canonicalize(model, /*relax_integrality=*/true);
     const auto dense = canon.to_dense();
     const auto lpres = markov_cero::lp::reference::solve(dense);
     assert(lpres.status == markov_cero::lp::reference::SolveStatus::optimal);
@@ -317,18 +308,12 @@ void test_zero_trust_primal_verifier_integration() {
     model.row_upper = {markov_cero::model::Bound::positive_infinity()};
     model.row_name = {"R1"};
 
-    model.variable_lower = {
-        markov_cero::model::Bound::finite(0.0),
-        markov_cero::model::Bound::finite(0.0)
-    };
-    model.variable_upper = {
-        markov_cero::model::Bound::finite(1.0),
-        markov_cero::model::Bound::finite(1.0)
-    };
-    model.variable_type = {
-        markov_cero::model::VariableType::binary,
-        markov_cero::model::VariableType::binary
-    };
+    model.variable_lower = {markov_cero::model::Bound::finite(0.0),
+                            markov_cero::model::Bound::finite(0.0)};
+    model.variable_upper = {markov_cero::model::Bound::finite(1.0),
+                            markov_cero::model::Bound::finite(1.0)};
+    model.variable_type = {markov_cero::model::VariableType::binary,
+                           markov_cero::model::VariableType::binary};
     model.variable_name = {"X1", "X2"};
     model.validate();
 

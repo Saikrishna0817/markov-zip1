@@ -18,7 +18,7 @@ void ensure_finite(double v, const char* message) {
 } // namespace
 
 PresolveResult presolve(const transform::SparseCanonicalModel& input,
-                         const PresolveOptions& options) {
+                        const PresolveOptions& options) {
     input.validate();
 
     PresolveResult result;
@@ -70,12 +70,12 @@ PresolveResult presolve(const transform::SparseCanonicalModel& input,
                 continue;
             }
             auto& r_entries = rows[i];
-            r_entries.erase(
-                std::remove_if(r_entries.begin(), r_entries.end(),
-                               [&](const RowEntry& e) {
-                                   return !col_active[e.col] || std::abs(e.val) <= options.pivot_tolerance;
-                               }),
-                r_entries.end());
+            r_entries.erase(std::remove_if(r_entries.begin(), r_entries.end(),
+                                           [&](const RowEntry& e) {
+                                               return !col_active[e.col] ||
+                                                      std::abs(e.val) <= options.pivot_tolerance;
+                                           }),
+                            r_entries.end());
 
             if (r_entries.empty()) {
                 if (std::abs(rhs[i]) > options.feasibility_tolerance) {
@@ -96,12 +96,12 @@ PresolveResult presolve(const transform::SparseCanonicalModel& input,
                 continue;
             }
             auto& c_entries = cols[j];
-            c_entries.erase(
-                std::remove_if(c_entries.begin(), c_entries.end(),
-                               [&](const ColEntry& e) {
-                                   return !row_active[e.row] || std::abs(e.val) <= options.pivot_tolerance;
-                               }),
-                c_entries.end());
+            c_entries.erase(std::remove_if(c_entries.begin(), c_entries.end(),
+                                           [&](const ColEntry& e) {
+                                               return !row_active[e.row] ||
+                                                      std::abs(e.val) <= options.pivot_tolerance;
+                                           }),
+                            c_entries.end());
 
             if (c_entries.empty()) {
                 if (obj[j] < -options.dual_tolerance) {
@@ -122,12 +122,12 @@ PresolveResult presolve(const transform::SparseCanonicalModel& input,
                 continue;
             }
             auto& r_entries = rows[i];
-            r_entries.erase(
-                std::remove_if(r_entries.begin(), r_entries.end(),
-                               [&](const RowEntry& e) {
-                                   return !col_active[e.col] || std::abs(e.val) <= options.pivot_tolerance;
-                               }),
-                r_entries.end());
+            r_entries.erase(std::remove_if(r_entries.begin(), r_entries.end(),
+                                           [&](const RowEntry& e) {
+                                               return !col_active[e.col] ||
+                                                      std::abs(e.val) <= options.pivot_tolerance;
+                                           }),
+                            r_entries.end());
 
             if (r_entries.size() == 1) {
                 const auto entry = r_entries[0];
@@ -137,7 +137,8 @@ PresolveResult presolve(const transform::SparseCanonicalModel& input,
 
                 if (fixed_val < -options.feasibility_tolerance) {
                     result.status = lp::reference::SolveStatus::infeasible;
-                    result.message = "presolve: row singleton implies negative value for canonical non-negative variable";
+                    result.message = "presolve: row singleton implies negative value for canonical "
+                                     "non-negative variable";
                     return result;
                 }
                 if (fixed_val < 0.0) {
@@ -160,7 +161,8 @@ PresolveResult presolve(const transform::SparseCanonicalModel& input,
                     }
                 }
                 obj_offset += obj[j] * fixed_val;
-                result.stack.push(FixedVariableRecord{j, fixed_val, obj[j], std::move(inc_rows), std::move(inc_coeffs)});
+                result.stack.push(FixedVariableRecord{j, fixed_val, obj[j], std::move(inc_rows),
+                                                      std::move(inc_coeffs)});
                 col_active[j] = false;
                 ++result.statistics.fixed_vars_removed;
             }
@@ -238,11 +240,10 @@ PresolveResult presolve(const transform::SparseCanonicalModel& input,
     return result;
 }
 
-lp::reference::Result postsolve(
-    const PresolveStack& stack,
-    const lp::reference::Result& reduced_solution,
-    const transform::SparseCanonicalModel& original_model,
-    double /*tolerance*/) {
+lp::reference::Result postsolve(const PresolveStack& stack,
+                                const lp::reference::Result& reduced_solution,
+                                const transform::SparseCanonicalModel& original_model,
+                                double /*tolerance*/) {
 
     lp::reference::Result restored = reduced_solution;
     const std::size_t m = original_model.matrix.rows;
@@ -269,36 +270,39 @@ lp::reference::Result postsolve(
     // 2. Pop reduction records in reverse (LIFO) order
     const auto& records = stack.records();
     for (auto it = records.rbegin(); it != records.rend(); ++it) {
-        std::visit([&](const auto& rec) {
-            using T = std::decay_t<decltype(rec)>;
-            if constexpr (std::is_same_v<T, EmptyRowRecord>) {
-                restored.dual[rec.original_row_index] = 0.0;
-            } else if constexpr (std::is_same_v<T, EmptyColumnRecord>) {
-                restored.primal[rec.original_col_index] = rec.fixed_value;
-            } else if constexpr (std::is_same_v<T, FixedVariableRecord>) {
-                restored.primal[rec.original_col_index] = rec.fixed_value;
-            } else if constexpr (std::is_same_v<T, RowSingletonRecord>) {
-                // Variable k was fixed by row i: a_{ik} x_k = b_i
-                // Satisfy dual optimality: pi_i = (c_k - sum_{r != i} a_{rk} pi_r) / a_{ik}
-                const std::size_t i = rec.original_row_index;
-                const std::size_t k = rec.variable_index;
-                const double a_ik = rec.coefficient;
-                const double c_k = original_model.objective[k];
+        std::visit(
+            [&](const auto& rec) {
+                using T = std::decay_t<decltype(rec)>;
+                if constexpr (std::is_same_v<T, EmptyRowRecord>) {
+                    restored.dual[rec.original_row_index] = 0.0;
+                } else if constexpr (std::is_same_v<T, EmptyColumnRecord>) {
+                    restored.primal[rec.original_col_index] = rec.fixed_value;
+                } else if constexpr (std::is_same_v<T, FixedVariableRecord>) {
+                    restored.primal[rec.original_col_index] = rec.fixed_value;
+                } else if constexpr (std::is_same_v<T, RowSingletonRecord>) {
+                    // Variable k was fixed by row i: a_{ik} x_k = b_i
+                    // Satisfy dual optimality: pi_i = (c_k - sum_{r != i} a_{rk} pi_r) / a_{ik}
+                    const std::size_t i = rec.original_row_index;
+                    const std::size_t k = rec.variable_index;
+                    const double a_ik = rec.coefficient;
+                    const double c_k = original_model.objective[k];
 
-                long double sum_other = 0.0;
-                const std::size_t c_start = original_model.matrix.column_offsets[k];
-                const std::size_t c_end = original_model.matrix.column_offsets[k + 1];
-                for (std::size_t p = c_start; p < c_end; ++p) {
-                    const std::size_t r = original_model.matrix.row_indices[p];
-                    if (r != i) {
-                        sum_other += static_cast<long double>(original_model.matrix.values[p]) * restored.dual[r];
+                    long double sum_other = 0.0;
+                    const std::size_t c_start = original_model.matrix.column_offsets[k];
+                    const std::size_t c_end = original_model.matrix.column_offsets[k + 1];
+                    for (std::size_t p = c_start; p < c_end; ++p) {
+                        const std::size_t r = original_model.matrix.row_indices[p];
+                        if (r != i) {
+                            sum_other += static_cast<long double>(original_model.matrix.values[p]) *
+                                         restored.dual[r];
+                        }
                     }
+                    const double pi_i = static_cast<double>((c_k - sum_other) / a_ik);
+                    ensure_finite(pi_i, "non-finite dual multiplier in postsolve");
+                    restored.dual[i] = pi_i;
                 }
-                const double pi_i = static_cast<double>((c_k - sum_other) / a_ik);
-                ensure_finite(pi_i, "non-finite dual multiplier in postsolve");
-                restored.dual[i] = pi_i;
-            }
-        }, *it);
+            },
+            *it);
     }
 
     // 3. Recompute exact objective value in original canonical space

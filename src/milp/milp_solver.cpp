@@ -26,10 +26,8 @@ struct NodeLpResult {
     std::optional<lp::dual::BasisState> basis;
 };
 
-NodeLpResult solve_node_lp(
-    const model::Model& node_model,
-    const Options& options,
-    const std::optional<lp::dual::BasisState>& warm_start) {
+NodeLpResult solve_node_lp(const model::Model& node_model, const Options& options,
+                           const std::optional<lp::dual::BasisState>& warm_start) {
     NodeLpResult res;
     try {
         const auto canon = transform::sparse_canonicalize(node_model, /*relax_integrality=*/true);
@@ -42,7 +40,8 @@ NodeLpResult solve_node_lp(
             dopts.allow_cold_fallback = true;
             const auto dres = lp::dual::solve(dense, dopts, warm_start);
             res.status = dres.solution.status;
-            res.iterations = dres.solution.phase_one_iterations + dres.solution.phase_two_iterations;
+            res.iterations =
+                dres.solution.phase_one_iterations + dres.solution.phase_two_iterations;
             if (res.status == lp::reference::SolveStatus::optimal) {
                 res.primal = transform::reconstruct_primal(canon, dres.solution.primal);
                 res.objective = transform::reconstruct_objective(canon, dres.solution.objective);
@@ -144,7 +143,8 @@ Result solve(const model::Model& model, const Options& options) {
     }
     if (root_lp.status != lp::reference::SolveStatus::optimal) {
         result.status = root_lp.status;
-        result.message = "root continuous relaxation failed: " + std::to_string(static_cast<int>(root_lp.status));
+        result.message = "root continuous relaxation failed: " +
+                         std::to_string(static_cast<int>(root_lp.status));
         const auto elapsed = std::chrono::steady_clock::now() - start_time;
         result.runtime_ms = std::chrono::duration<double, std::milli>(elapsed).count();
         return result;
@@ -153,7 +153,8 @@ Result solve(const model::Model& model, const Options& options) {
     best_lower_bound = root_lp.objective;
 
     // Check if root continuous solution is integer feasible
-    if (check_integer_feasibility(root_model, root_lp.primal, options.feasibility_tolerance, options.integrality_tolerance)) {
+    if (check_integer_feasibility(root_model, root_lp.primal, options.feasibility_tolerance,
+                                  options.integrality_tolerance)) {
         result.status = lp::reference::SolveStatus::optimal;
         result.primal = root_lp.primal;
         result.objective = root_lp.objective;
@@ -167,14 +168,17 @@ Result solve(const model::Model& model, const Options& options) {
 
     // 2. Run Primal Heuristics at Root
     if (options.enable_heuristics) {
-        const auto hr = simple_rounding(root_model, root_lp.primal, options.feasibility_tolerance, options.integrality_tolerance);
+        const auto hr = simple_rounding(root_model, root_lp.primal, options.feasibility_tolerance,
+                                        options.integrality_tolerance);
         if (hr.found && hr.objective < best_upper_bound) {
             best_upper_bound = hr.objective;
             best_primal = hr.primal;
             ++result.heuristics_found;
         }
 
-        const auto fp = feasibility_pump(root_model, root_lp.primal, options.max_pump_iterations, options.feasibility_tolerance, options.integrality_tolerance);
+        const auto fp =
+            feasibility_pump(root_model, root_lp.primal, options.max_pump_iterations,
+                             options.feasibility_tolerance, options.integrality_tolerance);
         if (fp.found && fp.objective < best_upper_bound) {
             best_upper_bound = fp.objective;
             best_primal = fp.primal;
@@ -189,10 +193,13 @@ Result solve(const model::Model& model, const Options& options) {
 
     if (options.enable_cuts && root_lp.basis.has_value()) {
         try {
-            const auto canon = transform::sparse_canonicalize(root_model, /*relax_integrality=*/true);
-            std::vector<Cut> cuts = generate_gomory_cuts(root_model, current_primal, canon, *root_lp.basis, options.max_cut_rounds);
+            const auto canon =
+                transform::sparse_canonicalize(root_model, /*relax_integrality=*/true);
+            std::vector<Cut> cuts = generate_gomory_cuts(root_model, current_primal, canon,
+                                                         *root_lp.basis, options.max_cut_rounds);
             if (options.enable_mir_cuts) {
-                const auto mir_cuts = generate_mir_cuts(root_model, current_primal, canon, *root_lp.basis, options.max_cut_rounds);
+                const auto mir_cuts = generate_mir_cuts(root_model, current_primal, canon,
+                                                        *root_lp.basis, options.max_cut_rounds);
                 cuts.insert(cuts.end(), mir_cuts.begin(), mir_cuts.end());
             }
             cuts = filter_cuts(std::move(cuts), options.max_cut_rounds);
@@ -209,7 +216,9 @@ Result solve(const model::Model& model, const Options& options) {
                     current_basis = cut_lp.basis;
                     best_lower_bound = std::max(best_lower_bound, current_obj);
 
-                    if (check_integer_feasibility(root_model, current_primal, options.feasibility_tolerance, options.integrality_tolerance)) {
+                    if (check_integer_feasibility(root_model, current_primal,
+                                                  options.feasibility_tolerance,
+                                                  options.integrality_tolerance)) {
                         if (current_obj < best_upper_bound) {
                             best_upper_bound = current_obj;
                             best_primal = current_primal;
@@ -223,7 +232,8 @@ Result solve(const model::Model& model, const Options& options) {
 
     // Check if root cuts closed the optimality gap
     if (!best_primal.empty() && best_lower_bound > -std::numeric_limits<double>::infinity()) {
-        const double gap = std::abs(best_upper_bound - best_lower_bound) / std::max(1.0, std::abs(best_upper_bound));
+        const double gap = std::abs(best_upper_bound - best_lower_bound) /
+                           std::max(1.0, std::abs(best_upper_bound));
         if (gap <= options.relative_gap_tolerance) {
             result.status = lp::reference::SolveStatus::optimal;
             result.primal = best_primal;
@@ -244,8 +254,8 @@ Result solve(const model::Model& model, const Options& options) {
             sb_opts.integrality_tolerance = options.integrality_tolerance;
             sb_opts.feasibility_tolerance = options.feasibility_tolerance;
             sb_opts.update_pseudo_costs = true;
-            const auto sb_res = evaluate_strong_branching(
-                root_model, current_primal, current_obj, current_basis, sb_opts, &pseudo_costs);
+            const auto sb_res = evaluate_strong_branching(root_model, current_primal, current_obj,
+                                                          current_basis, sb_opts, &pseudo_costs);
 
             if (sb_res.subproblem_infeasible) {
                 result.status = lp::reference::SolveStatus::infeasible;
@@ -271,9 +281,9 @@ Result solve(const model::Model& model, const Options& options) {
     }
 
     // 5. Initialize Active Node Priority Queue
-    std::priority_queue<std::shared_ptr<BranchNode>,
-                        std::vector<std::shared_ptr<BranchNode>>,
-                        NodeCompareBestBound> queue;
+    std::priority_queue<std::shared_ptr<BranchNode>, std::vector<std::shared_ptr<BranchNode>>,
+                        NodeCompareBestBound>
+        queue;
 
     auto root_node = std::make_shared<BranchNode>();
     root_node->id = 0;
@@ -360,7 +370,9 @@ Result solve(const model::Model& model, const Options& options) {
             model::Model node_model = root_model;
             node_model.variable_lower = node->variable_lower;
             node_model.variable_upper = node->variable_upper;
-            const auto hr = simple_rounding(node_model, node_lp_res.primal, options.feasibility_tolerance, options.integrality_tolerance);
+            const auto hr =
+                simple_rounding(node_model, node_lp_res.primal, options.feasibility_tolerance,
+                                options.integrality_tolerance);
             if (hr.found && hr.objective < best_upper_bound) {
                 best_upper_bound = hr.objective;
                 best_primal = hr.primal;
@@ -370,7 +382,8 @@ Result solve(const model::Model& model, const Options& options) {
 
         // 7. Branching Variable Selection
         std::size_t branch_var = root_model.matrix.column_count;
-        if (options.branching_strategy == BranchingStrategy::strong_branching && node_lp_res.basis.has_value()) {
+        if (options.branching_strategy == BranchingStrategy::strong_branching &&
+            node_lp_res.basis.has_value()) {
             try {
                 StrongBranchingOptions sb_opts;
                 sb_opts.integrality_tolerance = options.integrality_tolerance;
@@ -387,14 +400,14 @@ Result solve(const model::Model& model, const Options& options) {
                 }
                 branch_var = sb_res.best_variable;
             } catch (...) {
-                branch_var = select_branching_variable(
-                    node_lp_res.primal, root_model.variable_type, pseudo_costs,
-                    options.branching_strategy, options.integrality_tolerance);
+                branch_var = select_branching_variable(node_lp_res.primal, root_model.variable_type,
+                                                       pseudo_costs, options.branching_strategy,
+                                                       options.integrality_tolerance);
             }
         } else {
-            branch_var = select_branching_variable(
-                node_lp_res.primal, root_model.variable_type, pseudo_costs,
-                options.branching_strategy, options.integrality_tolerance);
+            branch_var = select_branching_variable(node_lp_res.primal, root_model.variable_type,
+                                                   pseudo_costs, options.branching_strategy,
+                                                   options.integrality_tolerance);
         }
 
         if (branch_var >= root_model.matrix.column_count) {
@@ -416,7 +429,8 @@ Result solve(const model::Model& model, const Options& options) {
             down_child->id = next_node_id++;
             down_child->parent_id = node->id;
             down_child->depth = node->depth + 1;
-            down_child->lower_bound = node_lp_res.objective; // parent lower bound is valid lower bound
+            down_child->lower_bound =
+                node_lp_res.objective; // parent lower bound is valid lower bound
             down_child->branch_variable = branch_var;
             down_child->branch_value = branch_val;
             down_child->is_down_branch = true;
@@ -456,7 +470,8 @@ Result solve(const model::Model& model, const Options& options) {
 
         // Check relative optimality gap
         if (!best_primal.empty() && best_lower_bound > -std::numeric_limits<double>::infinity()) {
-            const double gap = std::abs(best_upper_bound - best_lower_bound) / std::max(1.0, std::abs(best_upper_bound));
+            const double gap = std::abs(best_upper_bound - best_lower_bound) /
+                               std::max(1.0, std::abs(best_upper_bound));
             if (gap <= options.relative_gap_tolerance) {
                 break;
             }
@@ -475,7 +490,8 @@ Result solve(const model::Model& model, const Options& options) {
         if (std::abs(result.best_bound) > 1e15) {
             result.best_bound = result.objective;
         }
-        result.relative_gap = std::max(0.0, std::abs(result.objective - result.best_bound) / std::max(1.0, std::abs(result.objective)));
+        result.relative_gap = std::max(0.0, std::abs(result.objective - result.best_bound) /
+                                                std::max(1.0, std::abs(result.objective)));
         result.message = "branch-and-cut MILP optimum";
     } else {
         result.status = lp::reference::SolveStatus::infeasible;

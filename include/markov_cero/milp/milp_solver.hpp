@@ -10,11 +10,7 @@
 
 namespace markov_cero::milp {
 
-enum class NodeSelectionStrategy {
-    best_bound,
-    depth_first,
-    best_bound_plunge
-};
+enum class NodeSelectionStrategy { best_bound, depth_first, best_bound_plunge };
 
 struct Options {
     std::size_t max_nodes{50000};

@@ -1,9 +1,0 @@
-M5 INDEPENDENT REVIEW ATTEMPTS
-
-Mathematical reviewer: CHANGES REQUIRED — BLOCKER.
-Reason: isolated review runtime did not contain /data/markov-cero and could not inspect or run the candidate.
-
-Source/security/release reviewer: CHANGES REQUIRED — BLOCKER.
-Reason: isolated review runtime did not contain /data/markov-cero and could not inspect or run the candidate.
-
-Interpretation: these are infrastructure/access blockers, not review sign-offs and not evidence of code correctness. Both reviews must be repeated against the exact candidate commit on a runner that can access the repository.

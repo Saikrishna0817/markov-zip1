@@ -1,0 +1,81 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  build-and-test:
+    name: ${{ matrix.compiler }} / ${{ matrix.build_type }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        compiler: [gcc, clang]
+        build_type: [Debug, Release, ASan-UBSan]
+        include:
+          - compiler: gcc
+            cc: gcc
+            cxx: g++
+          - compiler: clang
+            cc: clang
+            cxx: clang++
+          - build_type: Debug
+            cmake_build_type: Debug
+            cmake_flags: ""
+          - build_type: Release
+            cmake_build_type: Release
+            cmake_flags: ""
+          - build_type: ASan-UBSan
+            cmake_build_type: RelWithDebInfo
+            cmake_flags: "-DMARKOV_CERO_ENABLE_ASAN_UBSAN=ON"
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Configure CMake
+        run: |
+          cmake -S . -B build \
+            -DCMAKE_BUILD_TYPE=${{ matrix.cmake_build_type }} \
+            -DCMAKE_C_COMPILER=${{ matrix.cc }} \
+            -DCMAKE_CXX_COMPILER=${{ matrix.cxx }} \
+            -DMARKOV_CERO_WARNINGS_AS_ERRORS=ON \
+            ${{ matrix.cmake_flags }}
+
+      - name: Build targets
+        run: cmake --build build --parallel 2
+
+      - name: Run full CTest suite
+        run: ctest --test-dir build --output-on-failure --timeout 180
+
+      - name: Run Netlib benchmark runner
+        run: |
+          python3 scripts/run_netlib.py \
+            --solver build/markov-cero-solve \
+            --instances afiro adlittle sc50a sc50b sc105 share2b recipe
+
+      - name: Run MIPLIB benchmark runner
+        run: |
+          python3 scripts/run_miplib.py \
+            --solver build/markov-cero-solve \
+            --instances stein9 stein15 flugpl
+
+      - name: Run refinery qualification demo
+        run: bash run-qualification-demo.sh
+        env:
+          MARKOV_CERO_BUILD_DIR: build

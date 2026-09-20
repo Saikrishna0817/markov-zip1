@@ -1,5 +1,7 @@
 # markov-cero
 
+[![CI](https://github.com/Saikrishna0817/markov-zip1/actions/workflows/ci.yml/badge.svg)](https://github.com/Saikrishna0817/markov-zip1/actions/workflows/ci.yml)
+
 Clean-room C++20 solver core for SIH 2026 problem SIH26119 (MRPL indigenous LP/MILP/QP).
 
 Current release: **v0.5.2** (Phase 4 Sovereign Multi-Engine Release). Continuous LP, First-Order PDLP, and Mixed-Integer Linear Programming (MILP) Branch-and-Cut are fully implemented and independently verified. CUDA/GPU acceleration and convex QP remain planned.
@@ -45,4 +47,4 @@ bash run-qualification-demo.sh
 ./scripts/verify-release.sh
 ```
 
-See `KNOWN_FAILURES.md`, `CAPABILITY-MATRIX.md`, and `QUICKSTART.md`.
+See `STATUS.md` and `QUICKSTART.md`.

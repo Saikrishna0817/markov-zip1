@@ -1,5 +1,5 @@
-#include "markov_cero/milp/cuts.hpp"
 #include "markov_cero/lp/dual/dual_simplex.hpp"
+#include "markov_cero/milp/cuts.hpp"
 #include "markov_cero/transform/sparse_canonical_model.hpp"
 
 #include <cassert>
@@ -23,26 +23,21 @@ void test_gomory_cut_generation() {
     model.row_upper = {markov_cero::model::Bound::finite(10.0)};
     model.row_name = {"CAPACITY"};
 
-    model.variable_lower = {
-        markov_cero::model::Bound::finite(0.0),
-        markov_cero::model::Bound::finite(0.0),
-        markov_cero::model::Bound::finite(0.0)
-    };
-    model.variable_upper = {
-        markov_cero::model::Bound::finite(1.0),
-        markov_cero::model::Bound::finite(1.0),
-        markov_cero::model::Bound::finite(1.0)
-    };
-    model.variable_type = {
-        markov_cero::model::VariableType::binary,
-        markov_cero::model::VariableType::binary,
-        markov_cero::model::VariableType::binary
-    };
+    model.variable_lower = {markov_cero::model::Bound::finite(0.0),
+                            markov_cero::model::Bound::finite(0.0),
+                            markov_cero::model::Bound::finite(0.0)};
+    model.variable_upper = {markov_cero::model::Bound::finite(1.0),
+                            markov_cero::model::Bound::finite(1.0),
+                            markov_cero::model::Bound::finite(1.0)};
+    model.variable_type = {markov_cero::model::VariableType::binary,
+                           markov_cero::model::VariableType::binary,
+                           markov_cero::model::VariableType::binary};
     model.variable_name = {"X1", "X2", "X3"};
     model.validate();
 
     // Solve continuous LP relaxation
-    const auto canon = markov_cero::transform::sparse_canonicalize(model, /*relax_integrality=*/true);
+    const auto canon =
+        markov_cero::transform::sparse_canonicalize(model, /*relax_integrality=*/true);
     const auto dense = canon.to_dense();
     const auto lpres = markov_cero::lp::reference::solve(dense);
     assert(lpres.status == markov_cero::lp::reference::SolveStatus::optimal);
@@ -56,7 +51,8 @@ void test_gomory_cut_generation() {
             assert(cut.violation > 0.0); // Strictly cuts off fractional LP point
             // Verify integer feasible points satisfy the cut:
             // e.g. x = (1, 1, 0)
-            double lhs = cut.coefficients[0] * 1.0 + cut.coefficients[1] * 1.0 + cut.coefficients[2] * 0.0;
+            double lhs =
+                cut.coefficients[0] * 1.0 + cut.coefficients[1] * 1.0 + cut.coefficients[2] * 0.0;
             assert(lhs >= cut.rhs - 1e-6); // Must not cut off valid integer optimum
         }
     }

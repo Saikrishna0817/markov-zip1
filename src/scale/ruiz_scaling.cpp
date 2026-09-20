@@ -17,8 +17,7 @@ void ensure_finite(double v, const char* message) {
 
 } // namespace
 
-RuizScalers equilibrate(transform::SparseCanonicalModel& model,
-                        const RuizOptions& options) {
+RuizScalers equilibrate(transform::SparseCanonicalModel& model, const RuizOptions& options) {
     const std::size_t m = model.matrix.rows;
     const std::size_t n = model.matrix.columns;
 
@@ -107,14 +106,16 @@ RuizScalers equilibrate(transform::SparseCanonicalModel& model,
 
     // Apply numerical safeguard clamping to prevent extreme scaling multipliers
     for (std::size_t i = 0; i < m; ++i) {
-        scalers.row_scale[i] = std::clamp(scalers.row_scale[i], options.min_scale, options.max_scale);
+        scalers.row_scale[i] =
+            std::clamp(scalers.row_scale[i], options.min_scale, options.max_scale);
         scalers.inv_row_scale[i] = 1.0 / scalers.row_scale[i];
         model.rhs[i] *= scalers.row_scale[i];
         ensure_finite(model.rhs[i], "non-finite scaled RHS");
     }
 
     for (std::size_t j = 0; j < n; ++j) {
-        scalers.col_scale[j] = std::clamp(scalers.col_scale[j], options.min_scale, options.max_scale);
+        scalers.col_scale[j] =
+            std::clamp(scalers.col_scale[j], options.min_scale, options.max_scale);
         scalers.inv_col_scale[j] = 1.0 / scalers.col_scale[j];
         model.objective[j] *= scalers.col_scale[j];
         ensure_finite(model.objective[j], "non-finite scaled objective");
@@ -123,8 +124,7 @@ RuizScalers equilibrate(transform::SparseCanonicalModel& model,
     return scalers;
 }
 
-void unscale_solution(const RuizScalers& scalers,
-                      lp::reference::Result& solution) {
+void unscale_solution(const RuizScalers& scalers, lp::reference::Result& solution) {
     // 1. Primal variables: x = D_C * x_bar
     for (std::size_t j = 0; j < solution.primal.size() && j < scalers.col_scale.size(); ++j) {
         solution.primal[j] *= scalers.col_scale[j];
@@ -145,7 +145,8 @@ void unscale_solution(const RuizScalers& scalers,
         solution.certificate[i] *= scalers.row_scale[i];
     }
 
-    // Note: objective value c^T x = (D_C c)^T (D_C^{-1} x) is mathematically invariant under diagonal scaling
+    // Note: objective value c^T x = (D_C c)^T (D_C^{-1} x) is mathematically invariant under
+    // diagonal scaling
 }
 
 } // namespace markov_cero::scale

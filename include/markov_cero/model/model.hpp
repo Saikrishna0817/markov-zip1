@@ -42,7 +42,11 @@ class SparseMatrixBuilder final {
   private:
     std::size_t row_count_;
     std::size_t column_count_;
-    struct Entry final { std::size_t row; std::size_t column; double value; };
+    struct Entry final {
+        std::size_t row;
+        std::size_t column;
+        double value;
+    };
     std::vector<Entry> entries_;
 };
 

@@ -24,43 +24,34 @@ void test_blend_lp() {
     model.objective_offset = 0.0;
 
     markov_cero::model::SparseMatrixBuilder builder(3, 2);
-    builder.add(0, 0, 1.0); builder.add(0, 1, 1.0);
+    builder.add(0, 0, 1.0);
+    builder.add(0, 1, 1.0);
     builder.add(1, 0, 1.0);
     builder.add(2, 1, 1.0);
     model.matrix = builder.build();
 
-    model.row_lower = {
-        markov_cero::model::Bound::negative_infinity(),
-        markov_cero::model::Bound::negative_infinity(),
-        markov_cero::model::Bound::negative_infinity()
-    };
-    model.row_upper = {
-        markov_cero::model::Bound::finite(4.0),
-        markov_cero::model::Bound::finite(3.0),
-        markov_cero::model::Bound::finite(3.0)
-    };
+    model.row_lower = {markov_cero::model::Bound::negative_infinity(),
+                       markov_cero::model::Bound::negative_infinity(),
+                       markov_cero::model::Bound::negative_infinity()};
+    model.row_upper = {markov_cero::model::Bound::finite(4.0),
+                       markov_cero::model::Bound::finite(3.0),
+                       markov_cero::model::Bound::finite(3.0)};
     model.row_name = {"SUM", "X1_UB", "X2_UB"};
 
-    model.variable_lower = {
-        markov_cero::model::Bound::finite(0.0),
-        markov_cero::model::Bound::finite(0.0)
-    };
-    model.variable_upper = {
-        markov_cero::model::Bound::finite(10.0),
-        markov_cero::model::Bound::finite(10.0)
-    };
-    model.variable_type = {
-        markov_cero::model::VariableType::continuous,
-        markov_cero::model::VariableType::continuous
-    };
+    model.variable_lower = {markov_cero::model::Bound::finite(0.0),
+                            markov_cero::model::Bound::finite(0.0)};
+    model.variable_upper = {markov_cero::model::Bound::finite(10.0),
+                            markov_cero::model::Bound::finite(10.0)};
+    model.variable_type = {markov_cero::model::VariableType::continuous,
+                           markov_cero::model::VariableType::continuous};
     model.variable_name = {"X1", "X2"};
     model.validate();
 
     markov_cero::lp::first_order::PdlpOptions opts;
     opts.max_iterations = 200000;
     opts.primal_tolerance = 1e-4;
-    opts.dual_tolerance   = 1e-4;
-    opts.gap_tolerance    = 1e-4;
+    opts.dual_tolerance = 1e-4;
+    opts.gap_tolerance = 1e-4;
 
     const auto res = markov_cero::lp::first_order::solve_pdlp(model, opts);
 
@@ -78,8 +69,8 @@ void test_blend_lp() {
     // Zero-trust verification
     if (res.status == markov_cero::lp::first_order::PdlpStatus::optimal) {
         markov_cero::verify::Candidate cand{res.primal, res.objective};
-        const auto report = markov_cero::verify::verify_primal(model, cand,
-            {1e-4, 1e-4}, {1e-4, 1e-4}, 1e-4);
+        const auto report =
+            markov_cero::verify::verify_primal(model, cand, {1e-4, 1e-4}, {1e-4, 1e-4}, 1e-4);
         assert(report.passed);
     }
 
@@ -106,28 +97,22 @@ void test_equality_lp() {
 
     model.row_lower = {markov_cero::model::Bound::finite(5.0)};
     model.row_upper = {markov_cero::model::Bound::finite(5.0)};
-    model.row_name  = {"EQUALITY"};
+    model.row_name = {"EQUALITY"};
 
-    model.variable_lower = {
-        markov_cero::model::Bound::finite(0.0),
-        markov_cero::model::Bound::finite(0.0)
-    };
-    model.variable_upper = {
-        markov_cero::model::Bound::finite(5.0),
-        markov_cero::model::Bound::finite(5.0)
-    };
-    model.variable_type  = {
-        markov_cero::model::VariableType::continuous,
-        markov_cero::model::VariableType::continuous
-    };
-    model.variable_name  = {"X1", "X2"};
+    model.variable_lower = {markov_cero::model::Bound::finite(0.0),
+                            markov_cero::model::Bound::finite(0.0)};
+    model.variable_upper = {markov_cero::model::Bound::finite(5.0),
+                            markov_cero::model::Bound::finite(5.0)};
+    model.variable_type = {markov_cero::model::VariableType::continuous,
+                           markov_cero::model::VariableType::continuous};
+    model.variable_name = {"X1", "X2"};
     model.validate();
 
     markov_cero::lp::first_order::PdlpOptions opts;
     opts.max_iterations = 200000;
     opts.primal_tolerance = 1e-4;
-    opts.dual_tolerance   = 1e-4;
-    opts.gap_tolerance    = 1e-4;
+    opts.dual_tolerance = 1e-4;
+    opts.gap_tolerance = 1e-4;
 
     const auto res = markov_cero::lp::first_order::solve_pdlp(model, opts);
 
@@ -135,8 +120,8 @@ void test_equality_lp() {
 
     if (res.status == markov_cero::lp::first_order::PdlpStatus::optimal) {
         markov_cero::verify::Candidate cand{res.primal, res.objective};
-        const auto report = markov_cero::verify::verify_primal(model, cand,
-            {1e-4, 1e-4}, {1e-4, 1e-4}, 1e-4);
+        const auto report =
+            markov_cero::verify::verify_primal(model, cand, {1e-4, 1e-4}, {1e-4, 1e-4}, 1e-4);
         assert(report.passed);
     }
     std::cout << "[+] test_equality_lp PASSED: obj=" << res.objective

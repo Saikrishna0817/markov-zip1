@@ -16,10 +16,10 @@ struct RuizOptions {
 };
 
 struct RuizScalers {
-    std::vector<double> row_scale;       // D_R
-    std::vector<double> col_scale;       // D_C
-    std::vector<double> inv_row_scale;   // D_R^{-1}
-    std::vector<double> inv_col_scale;   // D_C^{-1}
+    std::vector<double> row_scale;     // D_R
+    std::vector<double> col_scale;     // D_C
+    std::vector<double> inv_row_scale; // D_R^{-1}
+    std::vector<double> inv_col_scale; // D_C^{-1}
     std::size_t iterations_executed{};
     bool converged{false};
 };
@@ -27,7 +27,6 @@ struct RuizScalers {
 [[nodiscard]] RuizScalers equilibrate(transform::SparseCanonicalModel& model,
                                       const RuizOptions& options = {});
 
-void unscale_solution(const RuizScalers& scalers,
-                      lp::reference::Result& solution);
+void unscale_solution(const RuizScalers& scalers, lp::reference::Result& solution);
 
 } // namespace markov_cero::scale

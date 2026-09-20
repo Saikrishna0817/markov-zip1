@@ -246,7 +246,8 @@ SparseCanonicalModel sparse_canonicalize(const model::Model& in, bool relax_inte
                 out.record.objective_sign * in.objective[j] * vmap.multiplier[q];
         }
     }
-    out.objective_offset = out.record.objective_sign * static_cast<double>(obj_shift) + in.objective_offset;
+    out.objective_offset =
+        out.record.objective_sign * static_cast<double>(obj_shift) + in.objective_offset;
 
     // 4. Assemble SparseCsc matrix from triplets
     const std::size_t total_rows = out.rhs.size();
@@ -299,7 +300,7 @@ SparseCanonicalModel sparse_canonicalize(const model::Model& in, bool relax_inte
 }
 
 std::vector<double> reconstruct_primal(const SparseCanonicalModel& model,
-                                        const std::vector<double>& canonical_primal) {
+                                       const std::vector<double>& canonical_primal) {
     if (canonical_primal.size() != model.matrix.columns) {
         throw std::invalid_argument("canonical primal size does not match model columns");
     }
@@ -308,7 +309,8 @@ std::vector<double> reconstruct_primal(const SparseCanonicalModel& model,
         const auto& map = model.record.variables[j];
         long double val = map.offset;
         for (std::size_t q = 0; q < map.canonical_index.size(); ++q) {
-            val += static_cast<long double>(map.multiplier[q]) * canonical_primal[map.canonical_index[q]];
+            val += static_cast<long double>(map.multiplier[q]) *
+                   canonical_primal[map.canonical_index[q]];
         }
         const double dval = static_cast<double>(val);
         ensure_finite(dval, "non-finite reconstructed primal variable");

@@ -1,3 +1,0 @@
-GCC -fanalyzer executed on foundation, model, MPS parser, and primal verifier sources with -Wall -Wextra -Wpedantic -Werror.
-Result: PASS.
-Dynamic ASan/UBSan execution remains BLOCKED because the sandbox lacks sanitizer runtime libraries.

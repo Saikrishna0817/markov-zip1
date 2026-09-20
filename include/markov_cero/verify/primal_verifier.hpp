@@ -38,11 +38,10 @@ struct PrimalVerificationReport final {
     std::vector<Violation> violations;
 };
 
-[[nodiscard]] PrimalVerificationReport verify_primal(
-    const model::Model& model,
-    const Candidate& candidate,
-    const Tolerance& feasibility_tolerance = {},
-    const Tolerance& objective_tolerance = {},
-    double integrality_tolerance = 1e-6);
+[[nodiscard]] PrimalVerificationReport verify_primal(const model::Model& model,
+                                                     const Candidate& candidate,
+                                                     const Tolerance& feasibility_tolerance = {},
+                                                     const Tolerance& objective_tolerance = {},
+                                                     double integrality_tolerance = 1e-6);
 
 } // namespace markov_cero::verify

@@ -1,0 +1,114 @@
+#include "markov_cero/linalg/dense_lu.hpp"
+#include "markov_cero/lp/reference/revised_simplex.hpp"
+#include "markov_cero/verify/reference_lp_verifier.hpp"
+#include <algorithm>
+#include <array>
+#include <cmath>
+#include <iostream>
+#include <limits>
+#include <random>
+#include <stdexcept>
+using namespace markov_cero;
+namespace {
+void req(bool q, const char* m) {
+    if (!q)
+        throw std::runtime_error(m);
+}
+transform::CanonicalModel make(double cap, double bx, double by, double cx, double cy) {
+    transform::CanonicalModel m;
+    m.matrix = {3, 5, {1, 1, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1}};
+    m.rhs = {cap, bx, by};
+    m.objective = {cx, cy, 0, 0, 0};
+    m.record.objective_sign = 1;
+    m.record.structural_variables = 2;
+    m.record.variables.resize(2);
+    for (std::size_t j = 0; j < 2; ++j) {
+        m.record.variables[j].canonical_index = {j};
+        m.record.variables[j].multiplier = {1};
+    }
+    m.validate();
+    return m;
+}
+double exact(const transform::CanonicalModel& m) {
+    double best = std::numeric_limits<double>::infinity();
+    for (std::size_t a = 0; a < 5; ++a)
+        for (std::size_t b = a + 1; b < 5; ++b)
+            for (std::size_t c = b + 1; c < 5; ++c) {
+                linalg::DenseMatrix B{3, 3, {}};
+                B.values.resize(9);
+                std::array<std::size_t, 3> q{a, b, c};
+                for (std::size_t j = 0; j < 3; ++j)
+                    for (std::size_t i = 0; i < 3; ++i)
+                        B.values[i * 3 + j] = m.matrix(i, q[j]);
+                try {
+                    auto x = linalg::DenseLu::factorize(B).solve(m.rhs);
+                    bool ok = true;
+                    for (double z : x)
+                        ok = ok && z >= -1e-9;
+                    if (!ok)
+                        continue;
+                    double objective = 0;
+                    for (std::size_t j = 0; j < 3; ++j)
+                        objective += m.objective[q[j]] * x[j];
+                    best = std::min(best, objective);
+                } catch (const std::runtime_error&) {
+                }
+            }
+    return best;
+}
+} // namespace
+int main() {
+    std::mt19937_64 rng(0x4d3350524f50ULL);
+    std::uniform_real_distribution<double> d(0.25, 8.0), cost(-5.0, 5.0);
+    for (int trial = 0; trial < 200; ++trial) {
+        double bx = d(rng), by = d(rng), cap = d(rng);
+        auto m = make(cap, bx, by, cost(rng), cost(rng));
+        auto r = lp::reference::solve(m);
+        req(r.status == lp::reference::SolveStatus::optimal, "random status");
+        req(verify::verify_reference_result(m, r, 1e-7).accepted, "random verification");
+        req(std::abs(r.objective - exact(m)) < 1e-7, "random exact differential");
+        auto p = m;
+        std::swap(p.rhs[0], p.rhs[2]);
+        for (std::size_t j = 0; j < 5; ++j)
+            std::swap(p.matrix.values[j], p.matrix.values[2 * 5 + j]);
+        p.validate();
+        auto pr = lp::reference::solve(p);
+        req(pr.status == lp::reference::SolveStatus::optimal, "row permutation status");
+        req(std::abs(pr.objective - r.objective) < 1e-7, "row permutation objective");
+        req(verify::verify_reference_result(p, pr, 1e-7).accepted, "row permutation verify");
+    }
+    transform::CanonicalModel redundant;
+    redundant.matrix = {2, 2, {1, 1, 2, 2}};
+    redundant.rhs = {1, 2};
+    redundant.objective = {-1, 0};
+    redundant.record.objective_sign = 1;
+    redundant.record.structural_variables = 2;
+    redundant.record.variables.resize(2);
+    redundant.validate();
+    auto rr = lp::reference::solve(redundant);
+    req(rr.status == lp::reference::SolveStatus::optimal, "redundant row status");
+    req(verify::verify_reference_result(redundant, rr).accepted, "redundant row verify");
+    transform::CanonicalModel empty;
+    empty.matrix = {0, 2, {}};
+    empty.objective = {1, 0};
+    empty.record.objective_sign = 1;
+    empty.record.structural_variables = 2;
+    empty.record.variables.resize(2);
+    empty.validate();
+    auto er = lp::reference::solve(empty);
+    req(er.status == lp::reference::SolveStatus::optimal, "empty rows optimal");
+    empty.objective[1] = -1;
+    auto eu = lp::reference::solve(empty);
+    req(eu.status == lp::reference::SolveStatus::unbounded, "empty rows unbounded");
+    req(verify::verify_reference_result(empty, eu).accepted, "empty unbounded verify");
+    auto alternate = make(1, 1, 1, -1, -1);
+    auto ar = lp::reference::solve(alternate);
+    req(ar.status == lp::reference::SolveStatus::optimal, "alternate optimum");
+    req(std::abs(ar.objective + 1) < 1e-8, "alternate objective");
+    lp::reference::Options invalid;
+    invalid.pivot_tolerance = 0;
+    req(lp::reference::solve(alternate, invalid).status ==
+            lp::reference::SolveStatus::invalid_options,
+        "invalid options fail closed");
+    std::cout << "primal simplex randomized property tests passed\n";
+}
