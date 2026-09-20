@@ -55,12 +55,14 @@ add_library(markov_cero_core STATIC
   gpu/src/buffer.cpp
   gpu/src/csr.cpp
   gpu/src/device.cpp
+  gpu/src/spmv.cpp
 )
 target_include_directories(markov_cero_core PUBLIC include gpu/include)
 target_compile_features(markov_cero_core PUBLIC cxx_std_20)
 target_link_libraries(markov_cero_core PUBLIC Threads::Threads)
 if(MARKOV_CERO_ENABLE_CUDA)
   target_compile_definitions(markov_cero_core PUBLIC MARKOV_CERO_HAS_CUDA=1)
+  target_sources(markov_cero_core PRIVATE gpu/kernels/spmv.cu)
 endif()
 if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
   target_compile_options(markov_cero_core PRIVATE -Wall -Wextra -Wpedantic)
@@ -128,6 +130,8 @@ add_executable(parallel_tree_search_test tests/parallel_tree_search_test.cpp)
 target_link_libraries(parallel_tree_search_test PRIVATE markov_cero_core)
 add_executable(gpu_buffer_test gpu/tests/gpu_buffer_test.cpp)
 target_link_libraries(gpu_buffer_test PRIVATE markov_cero_core)
+add_executable(equivalence_test gpu/tests/equivalence_test.cpp)
+target_link_libraries(equivalence_test PRIVATE markov_cero_core)
 add_test(NAME build_info COMMAND build_info_test)
 add_test(NAME model_verifier COMMAND model_test)
 add_test(NAME mps_parser COMMAND mps_parser_test)
@@ -151,6 +155,7 @@ add_test(NAME strong_branching COMMAND strong_branching_test)
 add_test(NAME pdlp COMMAND pdlp_test)
 add_test(NAME parallel_tree_search COMMAND parallel_tree_search_test)
 add_test(NAME gpu_buffer COMMAND gpu_buffer_test)
+add_test(NAME equivalence COMMAND equivalence_test)
 add_test(NAME json_records COMMAND python3 -c "import json, glob; [json.load(open(f)) for f in glob.glob('**/*.json', recursive=True) if not f.startswith('_')]")
 add_test(NAME sovereignty_guard COMMAND ${CMAKE_COMMAND} -E env python3 ${CMAKE_SOURCE_DIR}/scripts/check-sovereignty.py ${CMAKE_SOURCE_DIR})
 add_test(NAME cli_blend_optimal COMMAND markov-cero-solve ${CMAKE_SOURCE_DIR}/examples/blend.mps)
@@ -168,7 +173,7 @@ set_tests_properties(
   dense_lu primal_simplex primal_simplex_properties dual_simplex
   warm_start_properties sparse_basis sparse_update_properties audit_regressions
   sparse_canonicalize presolve ruiz_scaling milp milp_heuristics milp_cuts
-  strong_branching pdlp parallel_tree_search gpu_buffer json_records sovereignty_guard
+  strong_branching pdlp parallel_tree_search gpu_buffer equivalence json_records sovereignty_guard
   cli_blend_optimal cli_refinery_feasible cli_refinery_infeasible
   cli_refinery_malformed cli_refinery_limited
   netlib_benchmarks
