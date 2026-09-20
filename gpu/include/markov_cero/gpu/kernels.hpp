@@ -41,6 +41,21 @@ void project_bounds_cpu(DeviceBuffer<double>& x,
 void project_bounds_cpu(std::size_t n, double* x,
                         const double* lower, const double* upper);
 
+// Vector dot product: sum(x_i * y_i)
+double dot(const DeviceBuffer<double>& x, const DeviceBuffer<double>& y);
+double dot_cpu(const DeviceBuffer<double>& x, const DeviceBuffer<double>& y);
+double dot_cpu(std::size_t n, const double* x, const double* y);
+
+// Vector Euclidean 2-norm: sqrt(sum(x_i^2))
+double norm2(const DeviceBuffer<double>& x);
+double norm2_cpu(const DeviceBuffer<double>& x);
+double norm2_cpu(std::size_t n, const double* x);
+
+// Vector infinity norm: max(|x_i|)
+double inf_norm(const DeviceBuffer<double>& x);
+double inf_norm_cpu(const DeviceBuffer<double>& x);
+double inf_norm_cpu(std::size_t n, const double* x);
+
 namespace detail {
 
 void launch_spmv_csr_vector(std::size_t rows,
@@ -54,6 +69,10 @@ void launch_axpy(std::size_t n, double alpha, const double* x, double* y);
 void launch_scale(std::size_t n, double alpha, double* x);
 void launch_project_bounds(std::size_t n, double* x,
                            const double* lower, const double* upper);
+
+double launch_dot(std::size_t n, const double* x, const double* y);
+double launch_norm2(std::size_t n, const double* x);
+double launch_inf_norm(std::size_t n, const double* x);
 
 } // namespace detail
 
