@@ -12,6 +12,9 @@
 
 namespace markov_cero::lp::first_order {
 
+enum class Backend { cpu, gpu };
+enum class RestartStrategy { none, adaptive, fixed };
+
 struct PdlpOptions {
     std::size_t max_iterations{100000};
     std::size_t restart_every{40};
@@ -20,6 +23,9 @@ struct PdlpOptions {
     double gap_tolerance{1e-4};
     double step_size_reduction{0.9};
     std::size_t power_iterations{20};
+    Backend backend{Backend::cpu};
+    RestartStrategy restart_strategy{RestartStrategy::adaptive};
+    double restart_reduction_factor{0.368};
 };
 
 enum class PdlpStatus { optimal, iteration_limit, infeasible_or_unbounded, numerical_failure };

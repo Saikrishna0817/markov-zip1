@@ -248,4 +248,218 @@ void pdhg_run_iterations_cpu(PdhgState& state,
     }
 }
 
+PdhgResiduals evaluate_residuals(const PdhgState& state, const model::Model& model) {
+    const std::size_t m = state.num_constraints;
+    const std::size_t n = state.num_variables;
+    if (m == 0 || n == 0) {
+        return PdhgResiduals{0.0, 0.0, 0.0, 0.0};
+    }
+
+    std::vector<double> h_xavg(n);
+    std::vector<double> h_yavg(m);
+    state.x_avg.download(h_xavg.data(), n);
+    state.y_avg.download(h_yavg.data(), m);
+
+    // 1. Primal infeasibility: max_i |A x_avg - proj| / (1 + |proj|)
+    std::vector<double> Ax_avg(m, 0.0);
+    for (std::size_t col = 0; col < n; ++col) {
+        const double xc = h_xavg[col];
+        if (xc != 0.0) {
+            for (std::size_t ptr = model.matrix.column_start[col];
+                 ptr < model.matrix.column_start[col + 1]; ++ptr) {
+                Ax_avg[model.matrix.row_index[ptr]] += model.matrix.value[ptr] * xc;
+            }
+        }
+    }
+
+    std::vector<double> h_rlo(m), h_rhi(m);
+    state.row_lower.download(h_rlo.data(), m);
+    state.row_upper.download(h_rhi.data(), m);
+
+    double prim_viol = 0.0;
+    for (std::size_t i = 0; i < m; ++i) {
+        const double proj = std::clamp(Ax_avg[i], h_rlo[i], h_rhi[i]);
+        const double r = std::abs(Ax_avg[i] - proj);
+        const double scale = 1.0 + std::abs(proj);
+        prim_viol = std::max(prim_viol, r / scale);
+    }
+
+    // 2. Dual infeasibility: ||proj(c + A^T y_avg)||_2 / max(1.0, ||c||_inf)
+    std::vector<double> At_yavg(n, 0.0);
+    for (std::size_t col = 0; col < n; ++col) {
+        double s = 0.0;
+        for (std::size_t ptr = model.matrix.column_start[col];
+             ptr < model.matrix.column_start[col + 1]; ++ptr) {
+            s += model.matrix.value[ptr] * h_yavg[model.matrix.row_index[ptr]];
+        }
+        At_yavg[col] = s;
+    }
+
+    std::vector<double> h_c(n), h_vlo(n), h_vhi(n);
+    state.c.download(h_c.data(), n);
+    state.var_lower.download(h_vlo.data(), n);
+    state.var_upper.download(h_vhi.data(), n);
+
+    double dual_res_sq = 0.0;
+    double c_scale = 1.0;
+    for (std::size_t j = 0; j < n; ++j) {
+        const double g = h_c[j] + At_yavg[j];
+        double projected_g = g;
+        if (h_xavg[j] <= h_vlo[j] + 1e-6) {
+            projected_g = std::min(0.0, g);
+        } else if (h_xavg[j] >= h_vhi[j] - 1e-6) {
+            projected_g = std::max(0.0, g);
+        }
+        dual_res_sq += projected_g * projected_g;
+        c_scale = std::max(c_scale, std::abs(h_c[j]));
+    }
+    const double dual_viol = std::sqrt(dual_res_sq) / c_scale;
+
+    // 3. Duality gap
+    double prim_obj = model.objective_offset;
+    for (std::size_t j = 0; j < n; ++j) {
+        prim_obj += h_c[j] * h_xavg[j];
+    }
+
+    double dual_obj = model.objective_offset;
+    for (std::size_t i = 0; i < m; ++i) {
+        if (h_yavg[i] > 0.0 && h_rhi[i] < 1e299) {
+            dual_obj -= h_yavg[i] * h_rhi[i];
+        } else if (h_yavg[i] < 0.0 && h_rlo[i] > -1e299) {
+            dual_obj -= h_yavg[i] * h_rlo[i];
+        }
+    }
+    for (std::size_t j = 0; j < n; ++j) {
+        const double g = h_c[j] + At_yavg[j];
+        if (g > 0.0 && h_vlo[j] > -1e299) {
+            dual_obj += g * h_vlo[j];
+        } else if (g < 0.0 && h_vhi[j] < 1e299) {
+            dual_obj += g * h_vhi[j];
+        }
+    }
+
+    const double gap_viol = std::abs(prim_obj - dual_obj) / std::max(1.0, std::abs(prim_obj));
+    const double score = std::max({prim_viol, dual_viol, gap_viol});
+
+    return PdhgResiduals{prim_viol, dual_viol, gap_viol, score};
+}
+
+void pdhg_restart(PdhgState& state) {
+    const std::size_t n = state.num_variables;
+    const std::size_t m = state.num_constraints;
+    if (n == 0 || m == 0) {
+        return;
+    }
+    std::vector<double> h_x(n);
+    std::vector<double> h_y(m);
+    state.x_avg.download(h_x.data(), n);
+    state.y_avg.download(h_y.data(), m);
+
+    state.x.upload(h_x.data(), n);
+    state.x_bar.upload(h_x.data(), n);
+    state.y.upload(h_y.data(), m);
+}
+
+markov_cero::lp::first_order::PdlpResult solve_pdlp_gpu(
+    const model::Model& model,
+    const markov_cero::lp::first_order::PdlpOptions& options) {
+    using namespace markov_cero::lp::first_order;
+    const std::size_t m = model.matrix.row_count;
+    const std::size_t n = model.matrix.column_count;
+    if (m == 0 || n == 0) {
+        return markov_cero::lp::first_order::PdlpResult{
+            markov_cero::lp::first_order::PdlpStatus::optimal,
+            {}, {}, 0.0, 0.0, 0.0, 0.0, 0, "trivial"
+        };
+    }
+
+    DeviceCsr A = DeviceCsr::from_csc(model.matrix);
+    DeviceCsr At = DeviceCsr::transpose_from_csc(model.matrix);
+    PdhgState state = create_pdhg_state(model, A, At, options.step_size_reduction);
+
+    std::size_t iter = 0;
+    std::size_t avg_count = 0;
+    std::size_t iters_since_restart = 0;
+
+    auto initial_resids = evaluate_residuals(state, model);
+    double last_score = initial_resids.score;
+    PdhgResiduals last_resids = initial_resids;
+
+    const std::size_t check_interval = std::max<std::size_t>(1, options.restart_every);
+
+    while (iter < options.max_iterations) {
+        const std::size_t chunk = std::min(check_interval, options.max_iterations - iter);
+        for (std::size_t k = 0; k < chunk; ++k) {
+            pdhg_step(state, ++avg_count);
+        }
+        iter += chunk;
+        iters_since_restart += chunk;
+
+        last_resids = evaluate_residuals(state, model);
+
+        if (last_resids.primal_infeasibility <= options.primal_tolerance &&
+            last_resids.dual_infeasibility <= options.dual_tolerance &&
+            last_resids.duality_gap <= options.gap_tolerance) {
+            std::vector<double> h_x(n), h_y(m);
+            state.x_avg.download(h_x.data(), n);
+            state.y_avg.download(h_y.data(), m);
+
+            double final_obj = model.objective_offset;
+            for (std::size_t j = 0; j < n; ++j) {
+                final_obj += model.objective[j] * h_x[j];
+            }
+
+            PdlpResult res;
+            res.status = PdlpStatus::optimal;
+            res.primal = std::move(h_x);
+            res.dual = std::move(h_y);
+            res.objective = final_obj;
+            res.primal_infeasibility = last_resids.primal_infeasibility;
+            res.dual_infeasibility = last_resids.dual_infeasibility;
+            res.duality_gap = last_resids.duality_gap;
+            res.iterations = iter;
+            res.message = "GPU PDLP converged";
+            return res;
+        }
+
+        bool do_restart = false;
+        if (options.restart_strategy == RestartStrategy::fixed) {
+            do_restart = true;
+        } else if (options.restart_strategy == RestartStrategy::adaptive) {
+            if (last_resids.score <= options.restart_reduction_factor * last_score ||
+                (iters_since_restart >= 5 * check_interval && last_resids.score < last_score)) {
+                do_restart = true;
+            }
+        }
+
+        if (do_restart) {
+            pdhg_restart(state);
+            avg_count = 0;
+            iters_since_restart = 0;
+            last_score = last_resids.score;
+        }
+    }
+
+    std::vector<double> h_x(n), h_y(m);
+    state.x_avg.download(h_x.data(), n);
+    state.y_avg.download(h_y.data(), m);
+
+    double final_obj = model.objective_offset;
+    for (std::size_t j = 0; j < n; ++j) {
+        final_obj += model.objective[j] * h_x[j];
+    }
+
+    PdlpResult res;
+    res.status = PdlpStatus::iteration_limit;
+    res.primal = std::move(h_x);
+    res.dual = std::move(h_y);
+    res.objective = final_obj;
+    res.primal_infeasibility = last_resids.primal_infeasibility;
+    res.dual_infeasibility = last_resids.dual_infeasibility;
+    res.duality_gap = last_resids.duality_gap;
+    res.iterations = iter;
+    res.message = "GPU PDLP iteration limit reached";
+    return res;
+}
+
 } // namespace markov_cero::gpu

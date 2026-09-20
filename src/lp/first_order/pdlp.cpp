@@ -4,6 +4,7 @@
 //            "Practical Large-Scale Linear Programming using Primal-Dual Hybrid Gradient"
 
 #include "markov_cero/lp/first_order/pdlp.hpp"
+#include "markov_cero/gpu/pdhg_step.hpp"
 
 #include <algorithm>
 #include <cassert>
@@ -78,6 +79,10 @@ PdlpResult solve_pdlp(const model::Model& model, const PdlpOptions& options) {
         return PdlpResult{PdlpStatus::optimal, {}, {}, 0.0, 0.0, 0.0, 0.0, 0, "trivial"};
     }
 
+    if (options.backend == Backend::gpu) {
+        return gpu::solve_pdlp_gpu(model, options);
+    }
+
     // Objective sign for minimize
     const double obj_sign = (model.objective_sense == model::ObjectiveSense::maximize) ? -1.0 : 1.0;
 
@@ -137,10 +142,8 @@ PdlpResult solve_pdlp(const model::Model& model, const PdlpOptions& options) {
     double dual_infeas = std::numeric_limits<double>::max();
     double gap_val = std::numeric_limits<double>::max();
     std::size_t avg_count = 0;
-
-    // Restart averages
-    std::vector<double> x_restart(x);
-    std::vector<double> y_restart(y);
+    std::size_t iters_since_restart = 0;
+    double last_restart_score = 1e300;
 
     while (iter < options.max_iterations) {
         // --- Primal update: x^{k+1} = proj_[l,u](x^k - tau_j * (c + A^T y^k)) ---
@@ -176,6 +179,7 @@ PdlpResult solve_pdlp(const model::Model& model, const PdlpOptions& options) {
         }
 
         ++iter;
+        ++iters_since_restart;
 
         // --- Convergence check every restart_every iterations ---
         if (iter % options.restart_every == 0) {
@@ -256,10 +260,28 @@ PdlpResult solve_pdlp(const model::Model& model, const PdlpOptions& options) {
                 return res;
             }
 
-            // Adaptive restart: reset averages if stagnated
-            x_restart = x_avg;
-            y_restart = y_avg;
-            avg_count = 0;
+            const double current_score = std::max({primal_infeas, dual_infeas, gap_val});
+            bool do_restart = false;
+            if (options.restart_strategy == RestartStrategy::fixed) {
+                do_restart = true;
+            } else if (options.restart_strategy == RestartStrategy::adaptive) {
+                if (current_score <= options.restart_reduction_factor * last_restart_score ||
+                    (iters_since_restart >= 5 * options.restart_every &&
+                     current_score < last_restart_score)) {
+                    do_restart = true;
+                }
+            }
+
+            if (do_restart) {
+                x = x_avg;
+                y = y_avg;
+                for (std::size_t j = 0; j < n; ++j) {
+                    x_bar[j] = x[j];
+                }
+                avg_count = 0;
+                iters_since_restart = 0;
+                last_restart_score = current_score;
+            }
         }
     }
 

@@ -2,6 +2,7 @@
 
 #include "markov_cero/gpu/buffer.hpp"
 #include "markov_cero/gpu/csr.hpp"
+#include "markov_cero/lp/first_order/pdlp.hpp"
 #include "markov_cero/model/model.hpp"
 
 #include <cstddef>
@@ -50,6 +51,20 @@ void pdhg_step(PdhgState& state, std::size_t avg_count);
 // CPU reference implementation of single fused PDHG iteration
 void pdhg_step_cpu(PdhgState& state, std::size_t avg_count);
 
+// Residuals and normalized duality gap metrics for PDHG convergence and restarts
+struct PdhgResiduals {
+    double primal_infeasibility{0.0};
+    double dual_infeasibility{0.0};
+    double duality_gap{0.0};
+    double score{0.0}; // max(primal_infeasibility, dual_infeasibility, duality_gap)
+};
+
+// Evaluate primal/dual residuals and duality gap on candidate average (x_avg, y_avg)
+PdhgResiduals evaluate_residuals(const PdhgState& state, const model::Model& model);
+
+// Reset base iterates x, y, and x_bar to current candidate ergodic averages
+void pdhg_restart(PdhgState& state);
+
 // Run multiple PDHG iterations entirely on device with ZERO H2D/D2H memory transfers
 void pdhg_run_iterations(PdhgState& state,
                          std::size_t num_iterations,
@@ -59,6 +74,11 @@ void pdhg_run_iterations(PdhgState& state,
 void pdhg_run_iterations_cpu(PdhgState& state,
                              std::size_t num_iterations,
                              std::size_t start_avg_count = 1);
+
+// Solve LP using matrix-free GPU PDLP with adaptive restart on normalized duality gap
+markov_cero::lp::first_order::PdlpResult solve_pdlp_gpu(
+    const model::Model& model,
+    const markov_cero::lp::first_order::PdlpOptions& options = {});
 
 namespace detail {
 
