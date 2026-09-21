@@ -32,6 +32,12 @@ struct PdlpOptions {
     double primal_weight_smoothing{0.5};
     bool ruiz_scaling{true};
     std::size_t ruiz_iterations{10};
+
+    void set_tolerance(double tol) noexcept {
+        primal_tolerance = tol;
+        dual_tolerance = tol;
+        gap_tolerance = tol;
+    }
 };
 
 enum class PdlpStatus { optimal, iteration_limit, infeasible_or_unbounded, numerical_failure };
@@ -44,6 +50,7 @@ struct PdlpResult {
     double primal_infeasibility{0.0};
     double dual_infeasibility{0.0};
     double duality_gap{0.0};
+    double tolerance{1e-4};
     std::size_t iterations{0};
     std::string message;
 };

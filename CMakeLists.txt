@@ -148,6 +148,8 @@ add_executable(gpu_pdhg_restart_test gpu/tests/pdhg_restart_test.cpp)
 target_link_libraries(gpu_pdhg_restart_test PRIVATE markov_cero_core)
 add_executable(gpu_pdhg_adaptive_test gpu/tests/pdhg_adaptive_test.cpp)
 target_link_libraries(gpu_pdhg_adaptive_test PRIVATE markov_cero_core)
+add_executable(gpu_pdhg_kkt_test gpu/tests/pdhg_kkt_test.cpp)
+target_link_libraries(gpu_pdhg_kkt_test PRIVATE markov_cero_core)
 add_test(NAME build_info COMMAND build_info_test)
 add_test(NAME model_verifier COMMAND model_test)
 add_test(NAME mps_parser COMMAND mps_parser_test)
@@ -176,6 +178,7 @@ add_test(NAME gpu_reduction COMMAND gpu_reduction_test)
 add_test(NAME gpu_pdhg_step COMMAND gpu_pdhg_step_test)
 add_test(NAME gpu_pdhg_restart COMMAND gpu_pdhg_restart_test)
 add_test(NAME gpu_pdhg_adaptive COMMAND gpu_pdhg_adaptive_test)
+add_test(NAME gpu_pdhg_kkt COMMAND gpu_pdhg_kkt_test)
 add_test(NAME json_records COMMAND python3 -c "import json, glob; [json.load(open(f)) for f in glob.glob('**/*.json', recursive=True) if not f.startswith('_')]")
 add_test(NAME sovereignty_guard COMMAND ${CMAKE_COMMAND} -E env python3 ${CMAKE_SOURCE_DIR}/scripts/check-sovereignty.py ${CMAKE_SOURCE_DIR})
 add_test(NAME cli_blend_optimal COMMAND markov-cero-solve ${CMAKE_SOURCE_DIR}/examples/blend.mps)
@@ -194,7 +197,7 @@ set_tests_properties(
   warm_start_properties sparse_basis sparse_update_properties audit_regressions
   sparse_canonicalize presolve ruiz_scaling milp milp_heuristics milp_cuts
   strong_branching pdlp parallel_tree_search gpu_buffer equivalence gpu_reduction
-  gpu_pdhg_step gpu_pdhg_restart gpu_pdhg_adaptive json_records sovereignty_guard
+  gpu_pdhg_step gpu_pdhg_restart gpu_pdhg_adaptive gpu_pdhg_kkt json_records sovereignty_guard
   cli_blend_optimal cli_refinery_feasible cli_refinery_infeasible
   cli_refinery_malformed cli_refinery_limited
   netlib_benchmarks

@@ -46,15 +46,6 @@ std::vector<double> spmv_t(const model::SparseMatrixCSC& A, const std::vector<do
     return z;
 }
 
-double dot(const std::vector<double>& a, const std::vector<double>& b) {
-    double s = 0.0;
-    const std::size_t n = a.size();
-    for (std::size_t i = 0; i < n; ++i) {
-        s += a[i] * b[i];
-    }
-    return s;
-}
-
 // Project x_j onto [l_j, u_j] respecting Bound types
 inline double project_bound(double x, const model::Bound& lo, const model::Bound& hi) {
     double lo_val = (lo.kind == model::BoundKind::negative_infinity) ? -1e300 : lo.value;
@@ -62,13 +53,119 @@ inline double project_bound(double x, const model::Bound& lo, const model::Bound
     return std::clamp(x, lo_val, hi_val);
 }
 
-// Build effective RHS midpoint b from row_lower / row_upper
-// For equality rows (l == u), b = l.
-// For one-sided, project dual onto feasible range.
-// PDLP treats all rows as: A x in [row_lower, row_upper].
-// Dual variable y_i >= 0 for upper-bounded rows, <= 0 for lower-bounded.
-// Primal update projects x onto [l_j, u_j].
-// Dual update projects y_i onto appropriate sign.
+struct UnscaledResiduals {
+    double primal_infeas{0.0};
+    double dual_infeas{0.0};
+    double duality_gap{0.0};
+    double score{0.0};
+    std::vector<double> x;
+    std::vector<double> y;
+    double objective{0.0};
+};
+
+UnscaledResiduals compute_unscaled_residuals(
+    const model::Model& model,
+    const std::vector<double>& x_avg,
+    const std::vector<double>& y_avg,
+    const std::vector<double>& Ax_avg,
+    const std::vector<double>& At_y_avg,
+    const scale::RuizScalers& scalers,
+    bool ruiz_scaling) {
+    const std::size_t m = model.matrix.row_count;
+    const std::size_t n = model.matrix.column_count;
+    const double obj_sign = (model.objective_sense == model::ObjectiveSense::maximize)
+                                ? -1.0 : 1.0;
+
+    UnscaledResiduals res;
+    res.x.resize(n);
+    res.y.resize(m);
+    for (std::size_t j = 0; j < n; ++j) {
+        res.x[j] = ruiz_scaling ? (x_avg[j] * scalers.col_scale[j]) : x_avg[j];
+    }
+    for (std::size_t i = 0; i < m; ++i) {
+        res.y[i] = ruiz_scaling ? (y_avg[i] * scalers.row_scale[i]) : y_avg[i];
+    }
+
+    double max_prim_viol = 0.0;
+    for (std::size_t i = 0; i < m; ++i) {
+        const double ax_i = ruiz_scaling ? (Ax_avg[i] / scalers.row_scale[i]) : Ax_avg[i];
+        const double lo = (model.row_lower[i].kind == model::BoundKind::negative_infinity)
+                              ? -1e300 : model.row_lower[i].value;
+        const double hi = (model.row_upper[i].kind == model::BoundKind::positive_infinity)
+                              ? +1e300 : model.row_upper[i].value;
+        const double proj = std::clamp(ax_i, lo, hi);
+        const double r = std::abs(ax_i - proj);
+        const double scale = 1.0 + std::max(std::abs(ax_i),
+                                            std::abs(proj) < 1e299 ? std::abs(proj) : 0.0);
+        max_prim_viol = std::max(max_prim_viol, r / scale);
+    }
+    for (std::size_t j = 0; j < n; ++j) {
+        const double lo = (model.variable_lower[j].kind == model::BoundKind::negative_infinity)
+                              ? -1e300 : model.variable_lower[j].value;
+        const double hi = (model.variable_upper[j].kind == model::BoundKind::positive_infinity)
+                              ? +1e300 : model.variable_upper[j].value;
+        const double proj = std::clamp(res.x[j], lo, hi);
+        const double r = std::abs(res.x[j] - proj);
+        const double scale = 1.0 + std::max(std::abs(res.x[j]),
+                                            std::abs(proj) < 1e299 ? std::abs(proj) : 0.0);
+        max_prim_viol = std::max(max_prim_viol, r / scale);
+    }
+    res.primal_infeas = max_prim_viol;
+
+    double c_scale = 1.0;
+    double dual_res_sq = 0.0;
+    for (std::size_t j = 0; j < n; ++j) {
+        const double at_y = ruiz_scaling ? (At_y_avg[j] / scalers.col_scale[j]) : At_y_avg[j];
+        const double c_orig = obj_sign * model.objective[j];
+        c_scale = std::max(c_scale, std::abs(c_orig));
+        const double g = c_orig + at_y;
+        const double lo = (model.variable_lower[j].kind == model::BoundKind::negative_infinity)
+                              ? -1e300 : model.variable_lower[j].value;
+        const double hi = (model.variable_upper[j].kind == model::BoundKind::positive_infinity)
+                              ? +1e300 : model.variable_upper[j].value;
+        const double x_proj = std::clamp(res.x[j] - g, lo, hi);
+        const double diff = res.x[j] - x_proj;
+        dual_res_sq += diff * diff;
+    }
+    res.dual_infeas = std::sqrt(dual_res_sq) / c_scale;
+
+    double primal_obj = model.objective_offset;
+    for (std::size_t j = 0; j < n; ++j) {
+        primal_obj += model.objective[j] * res.x[j];
+    }
+    res.objective = primal_obj;
+
+    double dual_obj = model.objective_offset;
+    for (std::size_t i = 0; i < m; ++i) {
+        const double lo = (model.row_lower[i].kind == model::BoundKind::negative_infinity)
+                              ? -1e300 : model.row_lower[i].value;
+        const double hi = (model.row_upper[i].kind == model::BoundKind::positive_infinity)
+                              ? +1e300 : model.row_upper[i].value;
+        if (res.y[i] > 0.0 && hi < 1e299) {
+            dual_obj -= res.y[i] * hi;
+        } else if (res.y[i] < 0.0 && lo > -1e299) {
+            dual_obj -= res.y[i] * lo;
+        }
+    }
+    for (std::size_t j = 0; j < n; ++j) {
+        const double at_y = ruiz_scaling ? (At_y_avg[j] / scalers.col_scale[j]) : At_y_avg[j];
+        const double c_orig = obj_sign * model.objective[j];
+        const double g = c_orig + at_y;
+        const double lo = (model.variable_lower[j].kind == model::BoundKind::negative_infinity)
+                              ? -1e300 : model.variable_lower[j].value;
+        const double hi = (model.variable_upper[j].kind == model::BoundKind::positive_infinity)
+                              ? +1e300 : model.variable_upper[j].value;
+        if (g > 0.0 && lo > -1e299) {
+            dual_obj += g * lo;
+        } else if (g < 0.0 && hi < 1e299) {
+            dual_obj += g * hi;
+        }
+    }
+    res.duality_gap = std::abs(primal_obj - dual_obj) /
+                      (1.0 + std::abs(primal_obj) + std::abs(dual_obj));
+    res.score = std::max({res.primal_infeas, res.dual_infeas, res.duality_gap});
+    return res;
+}
 
 } // namespace
 
@@ -77,7 +174,8 @@ PdlpResult solve_pdlp(const model::Model& model, const PdlpOptions& options) {
     const std::size_t n = model.matrix.column_count;
 
     if (n == 0 || m == 0) {
-        return PdlpResult{PdlpStatus::optimal, {}, {}, 0.0, 0.0, 0.0, 0.0, 0, "trivial"};
+        return PdlpResult{PdlpStatus::optimal, {}, {}, 0.0, 0.0, 0.0, 0.0,
+                          options.primal_tolerance, 0, "trivial"};
     }
 
     if (options.backend == Backend::gpu) {
@@ -226,72 +324,31 @@ PdlpResult solve_pdlp(const model::Model& model, const PdlpOptions& options) {
 
         if (iter % options.restart_every == 0) {
             auto Ax_avg = spmv(mdl.matrix, x_avg);
-            double max_prim_viol = 0.0;
-            for (std::size_t i = 0; i < m; ++i) {
-                double proj = std::clamp(Ax_avg[i], b_lo[i], b_hi[i]);
-                double r = std::abs(Ax_avg[i] - proj);
-                double scale = 1.0 + std::abs(proj);
-                max_prim_viol = std::max(max_prim_viol, r / scale);
-            }
-            primal_infeas = max_prim_viol;
-
             auto At_y_avg = spmv_t(mdl.matrix, y_avg);
-            double dual_res_sq = 0.0;
-            double c_scale = 1.0;
-            for (std::size_t j = 0; j < n; ++j) {
-                double g = c[j] + At_y_avg[j];
-                double x_proj = project_bound(
-                    x_avg[j] - g, mdl.variable_lower[j], mdl.variable_upper[j]);
-                double diff = x_avg[j] - x_proj;
-                dual_res_sq += diff * diff;
-                c_scale = std::max(c_scale, std::abs(c[j]));
-            }
-            dual_infeas = std::sqrt(dual_res_sq) / c_scale;
-
-            double primal_obj = dot(c, x_avg) + mdl.objective_offset;
-            double dual_obj = mdl.objective_offset;
-            for (std::size_t i = 0; i < m; ++i) {
-                if (y_avg[i] > 0.0 && b_hi[i] < 1e299) {
-                    dual_obj -= y_avg[i] * b_hi[i];
-                } else if (y_avg[i] < 0.0 && b_lo[i] > -1e299) {
-                    dual_obj -= y_avg[i] * b_lo[i];
-                }
-            }
-            for (std::size_t j = 0; j < n; ++j) {
-                double g = c[j] + At_y_avg[j];
-                double xl = (mdl.variable_lower[j].kind == model::BoundKind::negative_infinity)
-                                ? -1e300
-                                : mdl.variable_lower[j].value;
-                double xu = (mdl.variable_upper[j].kind == model::BoundKind::positive_infinity)
-                                ? +1e300
-                                : mdl.variable_upper[j].value;
-                if (g > 0.0 && xl > -1e299) {
-                    dual_obj += g * xl;
-                } else if (g < 0.0 && xu < 1e299) {
-                    dual_obj += g * xu;
-                }
-            }
-            gap_val = std::abs(primal_obj - dual_obj) / std::max(1.0, std::abs(primal_obj));
+            auto cur_res = compute_unscaled_residuals(
+                model, x_avg, y_avg, Ax_avg, At_y_avg, scalers, options.ruiz_scaling);
+            primal_infeas = cur_res.primal_infeas;
+            dual_infeas = cur_res.dual_infeas;
+            gap_val = cur_res.duality_gap;
 
             if (primal_infeas <= options.primal_tolerance &&
-                dual_infeas <= options.dual_tolerance && gap_val <= options.gap_tolerance) {
+                dual_infeas <= options.dual_tolerance &&
+                gap_val <= options.gap_tolerance) {
                 PdlpResult res;
                 res.status = PdlpStatus::optimal;
-                res.primal = x_avg;
-                res.dual = y_avg;
-                if (options.ruiz_scaling) {
-                    scale::unscale_model_solution(scalers, res.primal, res.dual);
-                }
-                res.objective = dot(model.objective, res.primal) + model.objective_offset;
+                res.primal = std::move(cur_res.x);
+                res.dual = std::move(cur_res.y);
+                res.objective = cur_res.objective;
                 res.primal_infeasibility = primal_infeas;
                 res.dual_infeasibility = dual_infeas;
                 res.duality_gap = gap_val;
+                res.tolerance = options.primal_tolerance;
                 res.iterations = iter;
                 res.message = "PDLP converged";
                 return res;
             }
 
-            const double current_score = std::max({primal_infeas, dual_infeas, gap_val});
+            const double current_score = cur_res.score;
             bool do_restart = false;
             if (options.restart_strategy == RestartStrategy::fixed) {
                 do_restart = true;
@@ -324,17 +381,20 @@ PdlpResult solve_pdlp(const model::Model& model, const PdlpOptions& options) {
         }
     }
 
+    auto Ax_avg = spmv(mdl.matrix, x_avg);
+    auto At_y_avg = spmv_t(mdl.matrix, y_avg);
+    auto final_res = compute_unscaled_residuals(
+        model, x_avg, y_avg, Ax_avg, At_y_avg, scalers, options.ruiz_scaling);
+
     PdlpResult res;
     res.status = PdlpStatus::iteration_limit;
-    res.primal = x_avg;
-    res.dual = y_avg;
-    if (options.ruiz_scaling) {
-        scale::unscale_model_solution(scalers, res.primal, res.dual);
-    }
-    res.objective = dot(model.objective, res.primal) + model.objective_offset;
-    res.primal_infeasibility = primal_infeas;
-    res.dual_infeasibility = dual_infeas;
-    res.duality_gap = gap_val;
+    res.primal = std::move(final_res.x);
+    res.dual = std::move(final_res.y);
+    res.objective = final_res.objective;
+    res.primal_infeasibility = final_res.primal_infeas;
+    res.dual_infeasibility = final_res.dual_infeas;
+    res.duality_gap = final_res.duality_gap;
+    res.tolerance = options.primal_tolerance;
     res.iterations = iter;
     res.message = "iteration limit reached";
     return res;

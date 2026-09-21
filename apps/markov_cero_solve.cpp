@@ -120,6 +120,7 @@ void usage(std::ostream& out) {
         << "  --scale, --no-scale       Enable or disable Ruiz matrix scaling (default: enabled)\n"
         << "  --max-presolve-passes N   Maximum presolve passes (default: 5)\n"
         << "  --ruiz-iterations N       Maximum Ruiz equilibration iterations (default: 10)\n"
+        << "  --tolerance TOL          Relative KKT tolerance for PDLP (default: 1e-4)\n"
         << "  --help, -h               Show this help\n";
 }
 
@@ -136,6 +137,10 @@ int main(int argc, char** argv) {
     bool enable_scale = true;
     std::size_t max_presolve_passes = 5;
     std::size_t ruiz_iterations = 10;
+    double pdlp_tolerance = 1e-4;
+    double pdlp_res_primal_infeas = 0.0;
+    double pdlp_res_dual_infeas = 0.0;
+    double pdlp_res_gap = 0.0;
     markov_cero::lp::reference::Options options;
     markov_cero::milp::Options milp_options;
     for (int i = 1; i < argc; ++i) {
@@ -282,6 +287,18 @@ int main(int argc, char** argv) {
             ruiz_iterations = std::strtoul(argv[++i], nullptr, 10);
             continue;
         }
+        if (arg == "--tolerance") {
+            if (i + 1 >= argc) {
+                usage(std::cerr);
+                return 8;
+            }
+            pdlp_tolerance = std::strtod(argv[++i], nullptr);
+            if (pdlp_tolerance <= 0.0) {
+                std::cerr << "tolerance must be positive: " << pdlp_tolerance << "\n";
+                return 8;
+            }
+            continue;
+        }
         if (arg == "--iteration-limit") {
             if (i + 1 >= argc) {
                 usage(std::cerr);
@@ -418,11 +435,12 @@ int main(int argc, char** argv) {
                 (options.iteration_limit != 10000 && options.iteration_limit > 0)
                     ? options.iteration_limit
                     : 100000;
-            pdlp_opts.primal_tolerance = 1e-4;
-            pdlp_opts.dual_tolerance = 1e-4;
-            pdlp_opts.gap_tolerance = 1e-4;
+            pdlp_opts.set_tolerance(pdlp_tolerance);
             const auto pdlp_res = markov_cero::lp::first_order::solve_pdlp(model, pdlp_opts);
             total_lp_iterations = pdlp_res.iterations;
+            pdlp_res_primal_infeas = pdlp_res.primal_infeasibility;
+            pdlp_res_dual_infeas = pdlp_res.dual_infeasibility;
+            pdlp_res_gap = pdlp_res.duality_gap;
             if (pdlp_res.status == markov_cero::lp::first_order::PdlpStatus::optimal) {
                 result.status = markov_cero::lp::reference::SolveStatus::optimal;
                 result.primal = pdlp_res.primal;
@@ -433,9 +451,10 @@ int main(int argc, char** argv) {
                 original_objective = pdlp_res.objective;
 
                 markov_cero::verify::Candidate candidate{original_primal, original_objective};
-                const markov_cero::verify::Tolerance pdlp_tol{1e-4, 1e-4};
+                const markov_cero::verify::Tolerance pdlp_tol{pdlp_tolerance, pdlp_tolerance};
                 primal_report =
-                    markov_cero::verify::verify_primal(model, candidate, pdlp_tol, pdlp_tol);
+                    markov_cero::verify::verify_primal(model, candidate, pdlp_tol, pdlp_tol,
+                                                       pdlp_tolerance);
                 original_verified = primal_report.passed;
                 canonical_verified = true;
                 std::string viol_desc;
@@ -716,6 +735,10 @@ int main(int argc, char** argv) {
          << "\"heuristics_found\":" << heuristics_found << ","
          << "\"phase_one_iterations\":" << result.phase_one_iterations << ","
          << "\"phase_two_iterations\":" << result.phase_two_iterations << ","
+         << "\"pdlp_tolerance\":" << json_number(pdlp_tolerance) << ","
+         << "\"relative_primal_residual\":" << json_number(pdlp_res_primal_infeas) << ","
+         << "\"relative_dual_residual\":" << json_number(pdlp_res_dual_infeas) << ","
+         << "\"relative_duality_gap\":" << json_number(pdlp_res_gap) << ","
          << "\"limitations\":\"CPU sovereign LP and MILP Branch-and-Cut engine; GPU and QP are not "
             "implemented.\"";
     if (!error.empty()) {
@@ -735,6 +758,9 @@ int main(int argc, char** argv) {
 
     std::cerr << "markov-cero " << markov_cero::foundation::version() << " "
               << markov_cero::lp::reference::to_string(result.status)
+              << (resolved_engine == "pdlp"
+                      ? (" [tol=" + json_number(pdlp_tolerance) + "]")
+                      : "")
               << (verified ? " VERIFIED\n" : " NOT VERIFIED\n");
     return exit_code(result.status);
 }

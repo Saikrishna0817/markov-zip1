@@ -8,7 +8,13 @@
 #include <cstddef>
 #include <vector>
 
-namespace markov_cero::gpu {
+namespace markov_cero {
+
+namespace scale {
+struct RuizScalers;
+}
+
+namespace gpu {
 
 // Device-resident state for First-Order Primal-Dual Hybrid Gradient (PDHG / PDLP)
 struct PdhgState {
@@ -69,7 +75,9 @@ struct PdhgResiduals {
 };
 
 // Evaluate primal/dual residuals and duality gap on candidate average (x_avg, y_avg)
-PdhgResiduals evaluate_residuals(const PdhgState& state, const model::Model& model);
+PdhgResiduals evaluate_residuals(const PdhgState& state,
+                                 const model::Model& original_model,
+                                 const scale::RuizScalers* scalers = nullptr);
 
 // Reset base iterates x, y, and x_bar to current candidate ergodic averages
 void pdhg_restart(PdhgState& state);
@@ -133,4 +141,6 @@ void pdhg_dual_step_cpu(std::size_t m,
 
 } // namespace detail
 
-} // namespace markov_cero::gpu
+} // namespace gpu
+
+} // namespace markov_cero
