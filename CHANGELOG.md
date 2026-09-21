@@ -1,6 +1,20 @@
 # Changelog
 
-## 0.5.2 — 2026-09-19
+## 0.5.2 — 2026-09-21
+
+### Phase 5: GPU Acceleration & Scale Crossover (commits 4ca75b2..3c5f356)
+- Implemented sovereign CUDA first-order PDLP engine with device-resident iteration.
+- Implemented DeviceBuffer RAII container and DeviceCsr sparse matrix formats.
+- Implemented custom warp-per-row CSR SpMV and transpose-SpMV kernels.
+- Implemented deterministic two-stage parallel reductions for vector norms and dot products.
+- Implemented fused device-resident PDHG step (zero in-loop host-device transfers).
+- Implemented adaptive restart on normalized duality gap and adaptive step-size scaling.
+- Added relative KKT termination criteria at 1e-4, 1e-6, 1e-8 tolerances.
+- Added four-part timing telemetry (H2D, kernel, D2H, total) in JSON output.
+- Built run_gpu.py three-way comparison benchmark runner (Simplex vs CPU vs GPU).
+- Executed scale crossover study demonstrating up to 29,320x speedup over CPU simplex.
+- Conducted Nsight Systems profiling, occupancy, and roofline analysis.
+- Refactored CLI solve app into modular cli_options and json_output components (<= 500 LOC).
 
 ### Phase 4: Sovereign Scaling & Audit Remediation (commit 23c8921)
 - Implemented matrix-free first-order PDLP/PDHG solver with diagonal preconditioning.

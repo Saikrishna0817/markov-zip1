@@ -6,17 +6,21 @@ This software contains clean-room C++20 implementations of:
   * Primal revised simplex with Bland's rule anti-cycling
   * Dual revised simplex with Harris ratio test, basis serialization, and warm-starts
   * Sparse basis LU factorization with product-form Eta updates
-  * Matrix-free First-Order Primal-Dual Hybrid Gradient (PDLP/PDHG) with diagonal preconditioning
+  * Matrix-free First-Order Primal-Dual Hybrid Gradient (PDLP/PDHG)
+- GPU-Accelerated First-Order LP Solver (CUDA):
+  * Device-resident matrix-free PDHG iteration with zero in-loop transfers
+  * Custom CSR SpMV and transpose-SpMV kernels with warp shuffle reduction
+  * Deterministic two-stage parallel reductions for vector operations
+  * Adaptive restarts, adaptive step sizes, and four-part timing telemetry
 - Mixed-Integer Linear Programming (MILP) branch-and-cut solvers:
   * Sequential branch-and-cut and multithreaded parallel tree search
   * Simplex tableau Gomory Mixed-Integer (GMI) cuts with slack substitution
   * Mixed-Integer Rounding (MIR) cuts with cosine-similarity filtering
-  * Strong branching lookahead evaluation, domain reduction, and reliability pseudo-costs
-  * Primal heuristics (simple rounding and feasibility pump with cycling perturbation)
-- Reversible LP presolve reductions, postsolve reconstruction, and Ruiz matrix scaling
+  * Strong branching lookahead evaluation, domain reduction, and pseudo-costs
+  * Primal heuristics (simple rounding and feasibility pump)
+- Reversible LP presolve reductions, postsolve reconstruction, and Ruiz scaling
 - Zero-trust dual-gated verification (canonical and original model space)
 
 Explicit Prototype Limitations:
-- GPU/CUDA acceleration is not implemented in this version (planned for Phase 5).
 - Convex Quadratic Programming (QP) is not implemented in this version (planned for Phase 6).
 - Machine learning-assisted branching is not implemented in this version (planned for Phase 7).

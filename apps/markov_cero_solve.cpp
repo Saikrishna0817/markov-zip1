@@ -1,3 +1,5 @@
+#include "cli_options.hpp"
+#include "json_output.hpp"
 #include "markov_cero/foundation/build_info.hpp"
 #include "markov_cero/io/mps.hpp"
 #include "markov_cero/lp/dual/dual_simplex.hpp"
@@ -26,120 +28,13 @@
 #include <string_view>
 #include <vector>
 
-namespace {
-
-int exit_code(markov_cero::lp::reference::SolveStatus status) {
-    using markov_cero::lp::reference::SolveStatus;
-    switch (status) {
-    case SolveStatus::optimal:
-        return 0;
-    case SolveStatus::infeasible:
-        return 1;
-    case SolveStatus::unbounded:
-        return 2;
-    case SolveStatus::invalid_model:
-        return 3;
-    case SolveStatus::invalid_options:
-        return 4;
-    case SolveStatus::resource_limit:
-        return 5;
-    case SolveStatus::iteration_limit:
-        return 6;
-    case SolveStatus::numerical_failure:
-        return 7;
-    }
-    return 7;
-}
-
-std::string json_escape(std::string_view text) {
-    std::string out;
-    out.reserve(text.size());
-    for (unsigned char c : text) {
-        if (c == '"' || c == '\\') {
-            out.push_back('\\');
-            out.push_back(static_cast<char>(c));
-        } else if (c == '\n') {
-            out += "\\n";
-        } else if (c == '\r') {
-            out += "\\r";
-        } else if (c == '\t') {
-            out += "\\t";
-        } else if (c < 0x20) {
-            char buf[8];
-            std::snprintf(buf, sizeof(buf), "\\u%04x", static_cast<unsigned int>(c));
-            out += buf;
-        } else {
-            out.push_back(static_cast<char>(c));
-        }
-    }
-    return out;
-}
-
-std::string json_number(double value) {
-    if (!std::isfinite(value)) {
-        return "null";
-    }
-    std::ostringstream o;
-    o.setf(std::ios::fmtflags(0), std::ios::floatfield);
-    o.precision(17);
-    o << value;
-    return o.str();
-}
-
-std::string json_array(const std::vector<double>& values) {
-    std::ostringstream o;
-    o << '[';
-    for (std::size_t i = 0; i < values.size(); ++i) {
-        if (i != 0) {
-            o << ',';
-        }
-        o << json_number(values[i]);
-    }
-    o << ']';
-    return o.str();
-}
-
-void usage(std::ostream& out) {
-    out << "usage: markov-cero-solve MODEL.mps [options]\n"
-        << "options:\n"
-        << "  --output result.json     Write output JSON to file\n"
-        << "  --engine primal|dual|pdlp|milp|parallel|auto Select solver engine (default: auto)\n"
-        << "  --threads N              Worker threads for parallel tree search (default: 4)\n"
-        << "  --branching most_fractional|pseudo_cost|strong_branching|reliability Branching "
-           "variable selection rule (default: pseudo_cost)\n"
-        << "  --iteration-limit N      Maximum simplex iterations\n"
-        << "  --max-nodes N            Maximum branch-and-cut search nodes (default: 50000)\n"
-        << "  --time-limit SEC         Maximum search time limit in seconds (default: 60.0)\n"
-        << "  --cuts, --no-cuts        Enable or disable Gomory & MIR mixed-integer cuts (default: "
-           "enabled)\n"
-        << "  --heuristics, --no-heuristics Enable or disable primal heuristics (default: "
-           "enabled)\n"
-        << "  --warm-start FILE        Load warm-start basis from file (dual engine)\n"
-        << "  --save-basis FILE        Save optimal basis to file\n"
-        << "  --presolve, --no-presolve Enable or disable presolve reductions (default: enabled)\n"
-        << "  --scale, --no-scale       Enable or disable Ruiz matrix scaling (default: enabled)\n"
-        << "  --max-presolve-passes N   Maximum presolve passes (default: 5)\n"
-        << "  --ruiz-iterations N       Maximum Ruiz equilibration iterations (default: 10)\n"
-        << "  --tolerance TOL          Relative KKT tolerance for PDLP (default: 1e-4)\n"
-        << "  --backend cpu|gpu        PDLP execution backend (default: cpu)\n"
-        << "  --help, -h               Show this help\n";
-}
-
-} // namespace
 
 int main(int argc, char** argv) {
-    std::string path;
-    std::string output_path;
-    std::string engine_name = "auto";
-    std::size_t num_threads = 4;
-    std::string warm_start_path;
-    std::string save_basis_path;
-    bool enable_presolve = true;
-    bool enable_scale = true;
-    std::size_t max_presolve_passes = 5;
-    std::size_t ruiz_iterations = 10;
-    double pdlp_tolerance = 1e-4;
-    std::string backend_name = "cpu";
+    using markov_cero::apps::json_number;
+    auto cli = markov_cero::apps::CliOptions::parse(argc, argv);
+    if (cli.help_requested) return 0;
+    if (cli.error) return cli.exit_code;
+
     double pdlp_res_primal_infeas = 0.0;
     double pdlp_res_dual_infeas = 0.0;
     double pdlp_res_gap = 0.0;
@@ -147,209 +42,9 @@ int main(int argc, char** argv) {
     double pdlp_kernel_ms = 0.0;
     double pdlp_d2h_ms = 0.0;
     double pdlp_total_ms = 0.0;
-    markov_cero::lp::reference::Options options;
-    markov_cero::milp::Options milp_options;
-    for (int i = 1; i < argc; ++i) {
-        const std::string arg = argv[i];
-        if (arg == "--help" || arg == "-h") {
-            usage(std::cout);
-            return 0;
-        }
-        if (arg == "--output") {
-            if (i + 1 >= argc) {
-                usage(std::cerr);
-                return 8;
-            }
-            output_path = argv[++i];
-            continue;
-        }
-        if (arg == "--engine") {
-            if (i + 1 >= argc) {
-                usage(std::cerr);
-                return 8;
-            }
-            engine_name = argv[++i];
-            if (engine_name != "primal" && engine_name != "dual" && engine_name != "pdlp" &&
-                engine_name != "milp" && engine_name != "parallel" && engine_name != "auto") {
-                std::cerr
-                    << "invalid engine (must be primal, dual, pdlp, milp, parallel, or auto): "
-                    << engine_name << "\n";
-                return 8;
-            }
-            continue;
-        }
-        if (arg == "--threads") {
-            if (i + 1 >= argc) {
-                usage(std::cerr);
-                return 8;
-            }
-            num_threads = std::strtoul(argv[++i], nullptr, 10);
-            if (num_threads == 0) {
-                num_threads = 1;
-            }
-            continue;
-        }
-        if (arg == "--branching") {
-            if (i + 1 >= argc) {
-                usage(std::cerr);
-                return 8;
-            }
-            const std::string bval = argv[++i];
-            if (bval == "most_fractional") {
-                milp_options.branching_strategy =
-                    markov_cero::milp::BranchingStrategy::most_fractional;
-            } else if (bval == "pseudo_cost") {
-                milp_options.branching_strategy = markov_cero::milp::BranchingStrategy::pseudo_cost;
-            } else if (bval == "strong_branching") {
-                milp_options.branching_strategy =
-                    markov_cero::milp::BranchingStrategy::strong_branching;
-            } else if (bval == "reliability") {
-                milp_options.branching_strategy = markov_cero::milp::BranchingStrategy::reliability;
-            } else {
-                std::cerr << "invalid branching strategy (most_fractional, pseudo_cost, "
-                             "strong_branching, reliability): "
-                          << bval << "\n";
-                return 8;
-            }
-            continue;
-        }
-        if (arg == "--max-nodes") {
-            if (i + 1 >= argc) {
-                usage(std::cerr);
-                return 8;
-            }
-            milp_options.max_nodes = std::strtoul(argv[++i], nullptr, 10);
-            continue;
-        }
-        if (arg == "--time-limit") {
-            if (i + 1 >= argc) {
-                usage(std::cerr);
-                return 8;
-            }
-            milp_options.time_limit_seconds = std::strtod(argv[++i], nullptr);
-            continue;
-        }
-        if (arg == "--cuts") {
-            milp_options.enable_cuts = true;
-            continue;
-        }
-        if (arg == "--no-cuts") {
-            milp_options.enable_cuts = false;
-            continue;
-        }
-        if (arg == "--heuristics") {
-            milp_options.enable_heuristics = true;
-            continue;
-        }
-        if (arg == "--no-heuristics") {
-            milp_options.enable_heuristics = false;
-            continue;
-        }
-        if (arg == "--warm-start") {
-            if (i + 1 >= argc) {
-                usage(std::cerr);
-                return 8;
-            }
-            warm_start_path = argv[++i];
-            continue;
-        }
-        if (arg == "--save-basis") {
-            if (i + 1 >= argc) {
-                usage(std::cerr);
-                return 8;
-            }
-            save_basis_path = argv[++i];
-            continue;
-        }
-        if (arg == "--presolve") {
-            enable_presolve = true;
-            continue;
-        }
-        if (arg == "--no-presolve") {
-            enable_presolve = false;
-            continue;
-        }
-        if (arg == "--scale") {
-            enable_scale = true;
-            continue;
-        }
-        if (arg == "--no-scale") {
-            enable_scale = false;
-            continue;
-        }
-        if (arg == "--max-presolve-passes") {
-            if (i + 1 >= argc) {
-                usage(std::cerr);
-                return 8;
-            }
-            max_presolve_passes = std::strtoul(argv[++i], nullptr, 10);
-            continue;
-        }
-        if (arg == "--ruiz-iterations") {
-            if (i + 1 >= argc) {
-                usage(std::cerr);
-                return 8;
-            }
-            ruiz_iterations = std::strtoul(argv[++i], nullptr, 10);
-            continue;
-        }
-        if (arg == "--tolerance") {
-            if (i + 1 >= argc) {
-                usage(std::cerr);
-                return 8;
-            }
-            pdlp_tolerance = std::strtod(argv[++i], nullptr);
-            if (pdlp_tolerance <= 0.0) {
-                std::cerr << "tolerance must be positive: " << pdlp_tolerance << "\n";
-                return 8;
-            }
-            continue;
-        }
-        if (arg == "--backend") {
-            if (i + 1 >= argc) {
-                usage(std::cerr);
-                return 8;
-            }
-            backend_name = argv[++i];
-            if (backend_name != "cpu" && backend_name != "gpu") {
-                std::cerr << "invalid backend (must be cpu or gpu): " << backend_name << "\n";
-                return 8;
-            }
-            continue;
-        }
-        if (arg == "--iteration-limit") {
-            if (i + 1 >= argc) {
-                usage(std::cerr);
-                return 8;
-            }
-            char* endptr = nullptr;
-            errno = 0;
-            const unsigned long long val = std::strtoull(argv[++i], &endptr, 10);
-            if (errno == ERANGE || endptr == argv[i] || *endptr != '\0') {
-                std::cerr << "invalid iteration limit: " << argv[i] << "\n";
-                return 8;
-            }
-            options.iteration_limit = static_cast<std::size_t>(val);
-            milp_options.max_iterations = static_cast<std::size_t>(val);
-            continue;
-        }
-        if (!arg.empty() && arg[0] == '-') {
-            usage(std::cerr);
-            return 8;
-        }
-        if (!path.empty()) {
-            usage(std::cerr);
-            return 8;
-        }
-        path = arg;
-    }
-    if (path.empty()) {
-        usage(std::cerr);
-        return 8;
-    }
 
-    const auto started = std::chrono::steady_clock::now();
-    std::ifstream input(path);
+const auto started = std::chrono::steady_clock::now();
+    std::ifstream input(cli.path);
     if (!input) {
         std::cerr << "cannot open input\n";
         return 8;
@@ -372,7 +67,7 @@ int main(int argc, char** argv) {
     bool scaling_applied = false;
     std::string error;
 
-    std::string resolved_engine = engine_name;
+    std::string resolved_engine = cli.engine_name;
     std::size_t nodes_explored = 0;
     std::size_t total_lp_iterations = 0;
     double best_bound = 0.0;
@@ -403,14 +98,14 @@ int main(int argc, char** argv) {
 
         if (resolved_engine == "parallel") {
             markov_cero::milp::ParallelOptions par_opts;
-            par_opts.num_threads = num_threads;
-            par_opts.time_limit_seconds = milp_options.time_limit_seconds;
-            par_opts.max_nodes = milp_options.max_nodes;
-            par_opts.enable_cuts = milp_options.enable_cuts;
-            par_opts.enable_mir_cuts = milp_options.enable_mir_cuts;
-            par_opts.enable_heuristics = milp_options.enable_heuristics;
-            par_opts.enable_strong_branching = milp_options.enable_strong_branching;
-            par_opts.branching_strategy = milp_options.branching_strategy;
+            par_opts.num_threads = cli.num_threads;
+            par_opts.time_limit_seconds = cli.milp_options.time_limit_seconds;
+            par_opts.max_nodes = cli.milp_options.max_nodes;
+            par_opts.enable_cuts = cli.milp_options.enable_cuts;
+            par_opts.enable_mir_cuts = cli.milp_options.enable_mir_cuts;
+            par_opts.enable_heuristics = cli.milp_options.enable_heuristics;
+            par_opts.enable_strong_branching = cli.milp_options.enable_strong_branching;
+            par_opts.branching_strategy = cli.milp_options.branching_strategy;
             const auto par_res = markov_cero::milp::solve_parallel(model, par_opts);
             result.status = par_res.status;
             result.message = par_res.message;
@@ -455,14 +150,14 @@ int main(int argc, char** argv) {
             }
         } else if (resolved_engine == "pdlp") {
             markov_cero::lp::first_order::PdlpOptions pdlp_opts;
-            pdlp_opts.backend = (backend_name == "gpu")
+            pdlp_opts.backend = (cli.backend_name == "gpu")
                                     ? markov_cero::lp::first_order::Backend::gpu
                                     : markov_cero::lp::first_order::Backend::cpu;
             pdlp_opts.max_iterations =
-                (options.iteration_limit != 10000 && options.iteration_limit > 0)
-                    ? options.iteration_limit
+                (cli.options.iteration_limit != 10000 && cli.options.iteration_limit > 0)
+                    ? cli.options.iteration_limit
                     : 100000;
-            pdlp_opts.set_tolerance(pdlp_tolerance);
+            pdlp_opts.set_tolerance(cli.pdlp_tolerance);
             const auto pdlp_res = markov_cero::lp::first_order::solve_pdlp(model, pdlp_opts);
             total_lp_iterations = pdlp_res.iterations;
             pdlp_res_primal_infeas = pdlp_res.primal_infeasibility;
@@ -482,10 +177,11 @@ int main(int argc, char** argv) {
                 original_objective = pdlp_res.objective;
 
                 markov_cero::verify::Candidate candidate{original_primal, original_objective};
-                const markov_cero::verify::Tolerance pdlp_tol{pdlp_tolerance, pdlp_tolerance};
+                const markov_cero::verify::Tolerance pdlp_tol{
+                    cli.pdlp_tolerance, cli.pdlp_tolerance};
                 primal_report =
                     markov_cero::verify::verify_primal(model, candidate, pdlp_tol, pdlp_tol,
-                                                       pdlp_tolerance);
+                                                       cli.pdlp_tolerance);
                 original_verified = primal_report.passed;
                 canonical_verified = true;
                 std::string viol_desc;
@@ -515,7 +211,7 @@ int main(int argc, char** argv) {
             best_bound = original_objective;
             relative_gap = 0.0;
         } else if (resolved_engine == "milp") {
-            const auto milp_res = markov_cero::milp::solve(model, milp_options);
+            const auto milp_res = markov_cero::milp::solve(model, cli.milp_options);
             result.status = milp_res.status;
             result.message = milp_res.message;
             nodes_explored = milp_res.nodes_explored;
@@ -562,9 +258,9 @@ int main(int argc, char** argv) {
                 markov_cero::transform::sparse_canonicalize(model, /*relax_integrality=*/true);
             auto working_model = sparse_canonical;
 
-            if (enable_presolve) {
+            if (cli.enable_presolve) {
                 markov_cero::presolve::PresolveOptions popts;
-                popts.max_passes = max_presolve_passes;
+                popts.max_passes = cli.max_presolve_passes;
                 presolve_res = markov_cero::presolve::presolve(sparse_canonical, popts);
                 if (presolve_res.status == markov_cero::lp::reference::SolveStatus::infeasible ||
                     presolve_res.status == markov_cero::lp::reference::SolveStatus::unbounded) {
@@ -578,9 +274,10 @@ int main(int argc, char** argv) {
 
             if (result.status != markov_cero::lp::reference::SolveStatus::infeasible &&
                 result.status != markov_cero::lp::reference::SolveStatus::unbounded &&
-                enable_scale && working_model.matrix.rows > 0 && working_model.matrix.columns > 0) {
+                cli.enable_scale && working_model.matrix.rows > 0 &&
+                working_model.matrix.columns > 0) {
                 markov_cero::scale::RuizOptions ropts;
-                ropts.max_iterations = ruiz_iterations;
+                ropts.max_iterations = cli.ruiz_iterations;
                 scalers = markov_cero::scale::equilibrate(working_model, ropts);
                 scaling_applied = true;
             }
@@ -596,10 +293,10 @@ int main(int argc, char** argv) {
                     const auto canonical = working_model.to_dense();
                     if (resolved_engine == "dual") {
                         markov_cero::lp::dual::Options dual_opts;
-                        dual_opts.iteration_limit = options.iteration_limit;
+                        dual_opts.iteration_limit = cli.options.iteration_limit;
                         std::optional<markov_cero::lp::dual::BasisState> warm_basis;
-                        if (!warm_start_path.empty()) {
-                            std::ifstream bfile(warm_start_path);
+                        if (!cli.warm_start_path.empty()) {
+                            std::ifstream bfile(cli.warm_start_path);
                             if (!bfile) {
                                 throw std::invalid_argument("cannot open warm-start basis file");
                             }
@@ -614,7 +311,7 @@ int main(int argc, char** argv) {
                         used_warm_start = dual_res.used_warm_start;
                         used_cold_fallback = dual_res.used_cold_fallback;
                     } else {
-                        result = markov_cero::lp::reference::solve(canonical, options);
+                        result = markov_cero::lp::reference::solve(canonical, cli.options);
                         if (result.status == markov_cero::lp::reference::SolveStatus::optimal &&
                             result.basis.size() == canonical.matrix.rows) {
                             basis_to_save =
@@ -641,9 +338,9 @@ int main(int argc, char** argv) {
                 for (std::size_t i = 0; i < sparse_canonical.rhs.size(); ++i) {
                     max_viol = std::max(max_viol, std::abs(Ax[i] - sparse_canonical.rhs[i]));
                 }
-                canonical_report.maximum_primal_violation = max_viol;
                 canonical_verified =
-                    (max_viol <= std::max(options.feasibility_tolerance, options.dual_tolerance));
+                    (max_viol <= std::max(cli.options.feasibility_tolerance,
+                                          cli.options.dual_tolerance));
 
                 if (result.dual.size() == sparse_canonical.matrix.rows) {
                     const auto aty = sparse_canonical.multiply_transpose(result.dual);
@@ -655,9 +352,10 @@ int main(int argc, char** argv) {
                         }
                     }
                     canonical_report.maximum_dual_violation = max_dual_viol;
-                    canonical_verified = canonical_verified &&
-                                         (max_dual_viol <= std::max(options.feasibility_tolerance,
-                                                                    options.dual_tolerance));
+                    canonical_verified =
+                        canonical_verified &&
+                        (max_dual_viol <= std::max(cli.options.feasibility_tolerance,
+                                                   cli.options.dual_tolerance));
                 }
             } else if (result.status == markov_cero::lp::reference::SolveStatus::infeasible ||
                        result.status == markov_cero::lp::reference::SolveStatus::unbounded) {
@@ -685,8 +383,8 @@ int main(int argc, char** argv) {
                 if (!original_verified) {
                     result.status = markov_cero::lp::reference::SolveStatus::numerical_failure;
                     result.message = "original-model verification failed";
-                } else if (!save_basis_path.empty() && basis_to_save.has_value()) {
-                    std::ofstream bfile(save_basis_path);
+                } else if (!cli.save_basis_path.empty() && basis_to_save.has_value()) {
+                    std::ofstream bfile(cli.save_basis_path);
                     if (bfile) {
                         bfile << markov_cero::lp::dual::serialize_basis(*basis_to_save);
                     }
@@ -726,78 +424,45 @@ int main(int argc, char** argv) {
                             result.status == markov_cero::lp::reference::SolveStatus::unbounded) &&
                            canonical_verified);
 
-    std::ostringstream json;
-    json << "{\"version\":\"" << json_escape(std::string(markov_cero::foundation::version()))
-         << "\","
-         << "\"milestone\":\"" << json_escape(std::string(markov_cero::foundation::milestone()))
-         << "\","
-         << "\"engine\":\"" << json_escape(resolved_engine) << "\","
-         << "\"status\":\"" << markov_cero::lp::reference::to_string(result.status) << "\","
-         << "\"rows\":" << model_rows << ","
-         << "\"cols\":" << model_cols << ","
-         << "\"nonzeros\":" << model_nnz << ","
-         << "\"verified\":" << (verified ? "true" : "false") << ","
-         << "\"message\":\"" << json_escape(result.message) << "\","
-         << "\"objective\":"
-         << json_number(result.status == markov_cero::lp::reference::SolveStatus::optimal
-                            ? original_objective
-                            : result.objective)
-         << ","
-         << "\"primal\":" << json_array(original_primal.empty() ? result.primal : original_primal)
-         << ","
-         << "\"canonical_verified\":" << (canonical_verified ? "true" : "false") << ","
-         << "\"original_verified\":" << (original_verified ? "true" : "false") << ","
-         << "\"original_message\":\"" << json_escape(original_message) << "\","
-         << "\"used_warm_start\":" << (used_warm_start ? "true" : "false") << ","
-         << "\"used_cold_fallback\":" << (used_cold_fallback ? "true" : "false") << ","
-         << "\"maximum_primal_violation\":" << json_number(primal_report.maximum_row_violation)
-         << ","
-         << "\"maximum_variable_violation\":"
-         << json_number(primal_report.maximum_variable_violation) << ","
-         << "\"maximum_integrality_violation\":"
-         << json_number(primal_report.maximum_integrality_violation) << ","
-         << "\"maximum_canonical_primal_violation\":"
-         << json_number(canonical_report.maximum_primal_violation) << ","
-         << "\"maximum_canonical_dual_violation\":"
-         << json_number(canonical_report.maximum_dual_violation) << ","
-         << "\"runtime_ms\":" << json_number(elapsed_ms) << ","
-         << "\"nodes_explored\":" << nodes_explored << ","
-         << "\"lp_iterations\":" << total_lp_iterations << ","
-         << "\"best_bound\":" << json_number(best_bound) << ","
-         << "\"relative_gap\":" << json_number(relative_gap) << ","
-         << "\"cuts_generated\":" << cuts_generated << ","
-         << "\"heuristics_found\":" << heuristics_found << ","
-         << "\"phase_one_iterations\":" << result.phase_one_iterations << ","
-         << "\"phase_two_iterations\":" << result.phase_two_iterations << ","
-         << "\"pdlp_tolerance\":" << json_number(pdlp_tolerance) << ","
-         << "\"relative_primal_residual\":" << json_number(pdlp_res_primal_infeas) << ","
-         << "\"relative_dual_residual\":" << json_number(pdlp_res_dual_infeas) << ","
-         << "\"relative_duality_gap\":" << json_number(pdlp_res_gap) << ","
-         << "\"backend\":\"" << json_escape(backend_name) << "\","
-         << "\"h2d_ms\":" << json_number(pdlp_h2d_ms) << ","
-         << "\"kernel_ms\":" << json_number(pdlp_kernel_ms) << ","
-         << "\"d2h_ms\":" << json_number(pdlp_d2h_ms) << ","
-         << "\"total_ms\":"
-         << json_number(resolved_engine == "pdlp" ? pdlp_total_ms : elapsed_ms) << ","
-         << "\"limitations\":\"Sovereign LP/MILP (CPU/GPU) engine; QP is scheduled for Phase 6.\"";
-    if (!error.empty()) {
-        json << ",\"error\":\"" << json_escape(error) << "\"";
-    }
-    json << "}\n";
-    const std::string payload = json.str();
-    std::cout << payload;
-    if (!output_path.empty()) {
-        std::ofstream output(output_path);
-        if (!output) {
-            std::cerr << "cannot write output\n";
-            return 8;
-        }
-        output << payload;
-    }
+        markov_cero::apps::JsonOutputData out_data;
+    out_data.resolved_engine = resolved_engine;
+    out_data.result = result;
+    out_data.model_rows = model_rows;
+    out_data.model_cols = model_cols;
+    out_data.model_nnz = model_nnz;
+    out_data.verified = verified;
+    out_data.original_objective = original_objective;
+    out_data.original_primal = original_primal;
+    out_data.canonical_verified = canonical_verified;
+    out_data.original_verified = original_verified;
+    out_data.original_message = original_message;
+    out_data.used_warm_start = used_warm_start;
+    out_data.used_cold_fallback = used_cold_fallback;
+    out_data.primal_report = primal_report;
+    out_data.canonical_report = canonical_report;
+    out_data.elapsed_ms = elapsed_ms;
+    out_data.nodes_explored = nodes_explored;
+    out_data.total_lp_iterations = total_lp_iterations;
+    out_data.best_bound = best_bound;
+    out_data.relative_gap = relative_gap;
+    out_data.cuts_generated = cuts_generated;
+    out_data.heuristics_found = heuristics_found;
+    out_data.pdlp_tolerance = cli.pdlp_tolerance;
+    out_data.pdlp_res_primal_infeas = pdlp_res_primal_infeas;
+    out_data.pdlp_res_dual_infeas = pdlp_res_dual_infeas;
+    out_data.pdlp_res_gap = pdlp_res_gap;
+    out_data.backend_name = cli.backend_name;
+    out_data.pdlp_h2d_ms = pdlp_h2d_ms;
+    out_data.pdlp_kernel_ms = pdlp_kernel_ms;
+    out_data.pdlp_d2h_ms = pdlp_d2h_ms;
+    out_data.pdlp_total_ms = pdlp_total_ms;
+    out_data.error = error;
+    out_data.output_path = cli.output_path;
+    markov_cero::apps::emit_json_output(out_data);
 
-    std::string timing_diag;
+std::string timing_diag;
     if (resolved_engine == "pdlp") {
-        if (backend_name == "gpu") {
+        if (cli.backend_name == "gpu") {
             timing_diag = " [gpu H2D=" + json_number(pdlp_h2d_ms) + "ms kernel=" +
                           json_number(pdlp_kernel_ms) + "ms D2H=" + json_number(pdlp_d2h_ms) +
                           "ms total=" + json_number(pdlp_total_ms) + "ms]";
@@ -809,8 +474,8 @@ int main(int argc, char** argv) {
     std::cerr << "markov-cero " << markov_cero::foundation::version() << " "
               << markov_cero::lp::reference::to_string(result.status)
               << (resolved_engine == "pdlp"
-                      ? (" [tol=" + json_number(pdlp_tolerance) + "]" + timing_diag)
+                      ? (" [tol=" + json_number(cli.pdlp_tolerance) + "]" + timing_diag)
                       : "")
               << (verified ? " VERIFIED\n" : " NOT VERIFIED\n");
-    return exit_code(result.status);
+    return markov_cero::apps::exit_code(result.status);
 }

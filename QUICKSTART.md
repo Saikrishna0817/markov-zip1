@@ -48,7 +48,7 @@ When Command 4 runs, `markov-cero-solve` outputs JSON telemetry to stdout and a 
   "lp_iterations": 8,
   "best_bound": 2600.0,
   "relative_gap": 0.0,
-  "limitations": "CPU sovereign LP and MILP Branch-and-Cut engine; GPU and QP are not implemented."
+  "limitations": "Sovereign LP/MILP (CPU/GPU) engine; QP is scheduled for Phase 6."
 }
 ```
 
@@ -85,8 +85,11 @@ the independent canonical witness certificate, and asserts original-model primal
 # Solve with multithreaded parallel tree search (4 threads)
 ./build/markov-cero-solve data/miplib/stein15.mps --engine parallel --threads 4
 
-# Solve using matrix-free first-order PDLP
+# Solve using matrix-free first-order PDLP (CPU)
 ./build/markov-cero-solve data/netlib/afiro.mps --engine pdlp
+
+# Solve using GPU-accelerated first-order PDLP (CUDA)
+./build/markov-cero-solve data/netlib/afiro.mps --engine pdlp --backend gpu
 
 # Inspect model dimensions, matrix density, and bounds
 ./build/markov-cero-mps-inspect examples/refinery/refinery-feasible.mps

@@ -38,24 +38,26 @@ JSON telemetry emitted by `markov-cero-solve` reports:
 "limitations":"Sovereign LP/MILP (CPU/GPU) engine; QP is scheduled for Phase 6."
 ```
 
-The following capabilities are **not implemented** in the current release:
+### Problem Statement Capability Status (LP / MILP / QP / GPU)
 
-1. **GPU Acceleration**:
-   - **Status**: **Implemented** (Phase 5 complete; see [docs/gpu.md](docs/gpu.md)).
-   - **Capabilities**: Device-resident matrix-free PDLP, custom CSR SpMV, adaptive restarts,
-     four-part timing, up to 29,320x speedup demonstrated on scale benchmark.
+- **Continuous LP**: **Implemented** (Phase 1–2).
+- **MILP Branch-and-Cut**: **Implemented** (Phase 3–4).
+- **GPU Acceleration**: **Implemented** (Phase 5; see [docs/gpu.md](docs/gpu.md)).
+  Device-resident PDLP, custom CSR SpMV, adaptive restarts, four-part timing.
 
-2. **Convex Quadratic Programming (QP)**:
+### Deferred Capabilities
+
+1. **Convex Quadratic Programming (QP)**:
    - **Status**: **Not implemented**.
    - **Roadmap**: Scheduled for [Phase 6 (Convex QP)](#phase-6-convex-qp-roadmap).
    - **Strategy**: ADMM operator-splitting (OSQP-style) with sparse KKT factorizations.
 
-3. **Machine Learning-Assisted Branching**:
+2. **Machine Learning-Assisted Branching**:
    - **Status**: **Not implemented**.
    - **Roadmap**: Scheduled for Phase 7.
    - **Strategy**: Offline-trained gradient-boosted tree ranker on strong branching scores.
 
-4. **Dual Steepest-Edge Pricing Recurrence**:
+3. **Dual Steepest-Edge Pricing Recurrence**:
    - **Status**: Recomputes full tableau norm in $O(m^2)$ work per pivot.
    - **Roadmap**: Scheduled for Phase 8 ($O(m)$ Forrest–Goldfarb recurrence).
 
