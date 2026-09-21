@@ -58,13 +58,9 @@ void check_product(std::size_t a, std::size_t b) {
 
 double dot(const std::vector<double>& a, const std::vector<double>& b) {
     long double s = 0;
-    for (std::size_t i = 0; i < a.size(); ++i) {
-        s += static_cast<long double>(a[i]) * b[i];
-    }
+    for (std::size_t i = 0; i < a.size(); ++i) s += static_cast<long double>(a[i]) * b[i];
     double v = static_cast<double>(s);
-    if (!std::isfinite(v)) {
-        throw std::overflow_error("non-finite dual simplex dot product");
-    }
+    if (!std::isfinite(v)) throw std::overflow_error("non-finite dual simplex dot product");
     return v;
 }
 
@@ -74,9 +70,7 @@ linalg::SparseCsc sparse_basis_matrix(const transform::CanonicalModel& m,
     columns.reserve(basis.size());
     for (auto j : basis) {
         std::vector<double> column(m.matrix.rows);
-        for (std::size_t i = 0; i < m.matrix.rows; ++i) {
-            column[i] = m.matrix(i, j);
-        }
+        for (std::size_t i = 0; i < m.matrix.rows; ++i) column[i] = m.matrix(i, j);
         columns.push_back(std::move(column));
     }
     return linalg::SparseCsc::from_columns(m.matrix.rows, columns);
@@ -109,9 +103,7 @@ bool significant_negative_reduced_cost(const transform::CanonicalModel& m, std::
 std::vector<double> full_primal(std::size_t n, const std::vector<std::size_t>& basis,
                                 const std::vector<double>& xb) {
     std::vector<double> x(n);
-    for (std::size_t i = 0; i < basis.size(); ++i) {
-        x[basis[i]] = xb[i];
-    }
+    for (std::size_t i = 0; i < basis.size(); ++i) x[basis[i]] = xb[i];
     return x;
 }
 
@@ -128,21 +120,24 @@ void validate_options(const Options& o) {
     }
 }
 
-void validate_basis(const transform::CanonicalModel& m, const BasisState& s) {
+void validate_basis_metadata(const transform::CanonicalModel& m, const BasisState& s) {
     if (s.rows != m.matrix.rows || s.columns != m.matrix.columns ||
         s.model_fingerprint != fingerprint(m) || s.basic_variables.size() != m.matrix.rows) {
         throw std::invalid_argument("warm basis metadata mismatch");
     }
     std::vector<bool> seen(m.matrix.columns);
     for (auto j : s.basic_variables) {
-        if (j >= m.matrix.columns || seen[j]) {
+        if (j >= m.matrix.columns || seen[j])
             throw std::invalid_argument("warm basis index invalid or duplicate");
-        }
         seen[j] = true;
     }
     if (m.matrix.rows > m.matrix.columns) {
         throw std::invalid_argument("warm basis cannot be square");
     }
+}
+
+void validate_basis(const transform::CanonicalModel& m, const BasisState& s) {
+    validate_basis_metadata(m, s);
     try {
         (void)linalg::SparseLu::factorize(sparse_basis_matrix(m, s.basic_variables));
     } catch (const std::exception&) {
@@ -274,9 +269,7 @@ Result certified_farkas(const transform::CanonicalModel& m, const std::vector<do
     Result out;
     out.solution.status = reference::SolveStatus::infeasible;
     out.solution.certificate.resize(m.matrix.rows);
-    for (std::size_t i = 0; i < m.matrix.rows; ++i) {
-        out.solution.certificate[i] = -pi[i];
-    }
+    for (std::size_t i = 0; i < m.matrix.rows; ++i) out.solution.certificate[i] = -pi[i];
     out.solution.message = "dual simplex Farkas certificate";
     auto check = verify::verify_reference_result(
         m, out.solution, std::max(o.feasibility_tolerance, o.dual_tolerance));
@@ -308,7 +301,6 @@ std::string fingerprint(const transform::CanonicalModel& m) {
 BasisState make_basis_state(const transform::CanonicalModel& m, const std::vector<std::size_t>& b) {
     BasisState s{m.matrix.rows, m.matrix.columns, fingerprint(m), b};
     validate_basis(m, s);
-    (void)linalg::SparseLu::factorize(sparse_basis_matrix(m, b));
     return s;
 }
 
@@ -318,15 +310,13 @@ void validate_basis_artifact(const BasisState& s) {
         throw std::invalid_argument("invalid basis artifact metadata");
     }
     for (char c : s.model_fingerprint) {
-        if (!std::isxdigit(static_cast<unsigned char>(c))) {
+        if (!std::isxdigit(static_cast<unsigned char>(c)))
             throw std::invalid_argument("invalid basis fingerprint");
-        }
     }
     std::vector<bool> seen(s.columns);
     for (auto j : s.basic_variables) {
-        if (j >= s.columns || seen[j]) {
+        if (j >= s.columns || seen[j])
             throw std::invalid_argument("basis artifact index invalid or duplicate");
-        }
         seen[j] = true;
     }
 }
@@ -336,9 +326,7 @@ std::string serialize_basis(const BasisState& s) {
     std::ostringstream body;
     body << "MARKOV-CERO-BASIS-1 " << s.rows << ' ' << s.columns << ' ' << s.model_fingerprint
          << ' ' << s.basic_variables.size();
-    for (auto j : s.basic_variables) {
-        body << ' ' << j;
-    }
+    for (auto j : s.basic_variables) body << ' ' << j;
     const auto text = body.str();
     return text + ' ' + hex(hash_text(text)) + "\n";
 }
@@ -364,9 +352,7 @@ BasisState parse_basis(const std::string& text) {
     }
     std::ostringstream body;
     body << magic << ' ' << s.rows << ' ' << s.columns << ' ' << fp << ' ' << count;
-    for (auto j : s.basic_variables) {
-        body << ' ' << j;
-    }
+    for (auto j : s.basic_variables) body << ' ' << j;
     if (checksum != hex(hash_text(body.str()))) {
         throw std::invalid_argument("basis checksum mismatch");
     }
@@ -403,13 +389,18 @@ Result solve(const transform::CanonicalModel& m, const Options& o,
             return cold(m, o, "cold solve delegated to certified M3 oracle");
         }
         validating_warm = true;
-        validate_basis(m, *warm);
+        validate_basis_metadata(m, *warm);
+        auto basis = warm->basic_variables;
+        linalg::SparseBasisFactorization factor;
+        try {
+            factor = linalg::SparseBasisFactorization::factorize(sparse_basis_matrix(m, basis),
+                                                                 sparse_options(o));
+        } catch (const std::exception&) {
+            throw std::invalid_argument("warm basis is singular");
+        }
         validating_warm = false;
         out.used_warm_start = true;
         out.telemetry.reserve(std::min(o.iteration_limit, o.telemetry_limit));
-        auto basis = warm->basic_variables;
-        auto factor = linalg::SparseBasisFactorization::factorize(sparse_basis_matrix(m, basis),
-                                                                  sparse_options(o));
         out.refactorizations = factor.statistics().refactorizations;
         for (std::size_t step = 0; step < o.iteration_limit; ++step) {
             const auto& diagnostics = factor.diagnostics();
@@ -489,21 +480,18 @@ Result solve(const transform::CanonicalModel& m, const Options& o,
         return out;
     } catch (const std::length_error& e) {
         out.solution.status = reference::SolveStatus::resource_limit;
-        out.solution.message = e.what();
-        out.message = e.what();
+        out.solution.message = out.message = e.what();
         return out;
     } catch (const std::invalid_argument& e) {
         if (validating_warm && warm && o.allow_cold_fallback) {
             return cold(m, o, std::string("invalid warm start; cold fallback: ") + e.what());
         }
         out.solution.status = reference::SolveStatus::numerical_failure;
-        out.solution.message = e.what();
-        out.message = e.what();
+        out.solution.message = out.message = e.what();
         return out;
     } catch (const std::exception& e) {
         out.solution.status = reference::SolveStatus::numerical_failure;
-        out.solution.message = e.what();
-        out.message = e.what();
+        out.solution.message = out.message = e.what();
         return out;
     }
 }

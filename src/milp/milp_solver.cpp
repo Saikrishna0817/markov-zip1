@@ -76,7 +76,6 @@ NodeLpResult solve_node_lp(const model::Model& node_model, const Options& option
 Result solve(const model::Model& model, const Options& options) {
     const auto start_time = std::chrono::steady_clock::now();
     Result result;
-
     try {
         model.validate();
     } catch (const std::exception& e) {
@@ -351,7 +350,6 @@ Result solve(const model::Model& model, const Options& options) {
                 }
             }
         }
-
         // Check integer feasibility of node solution
         const auto fractional_vars = find_fractional_variables(
             node_lp_res.primal, root_model.variable_type, options.integrality_tolerance);
@@ -484,12 +482,10 @@ Result solve(const model::Model& model, const Options& options) {
 
     if (!best_primal.empty()) {
         result.status = lp::reference::SolveStatus::optimal;
-        result.primal = best_primal;
+        result.primal = std::move(best_primal);
         result.objective = best_upper_bound;
-        result.best_bound = (queue.empty() ? best_upper_bound : best_lower_bound);
-        if (std::abs(result.best_bound) > 1e15) {
-            result.best_bound = result.objective;
-        }
+        result.best_bound = queue.empty() ? best_upper_bound : best_lower_bound;
+        if (std::abs(result.best_bound) > 1e15) result.best_bound = result.objective;
         result.relative_gap = std::max(0.0, std::abs(result.objective - result.best_bound) /
                                                 std::max(1.0, std::abs(result.objective)));
         result.message = "branch-and-cut MILP optimum";
@@ -497,7 +493,6 @@ Result solve(const model::Model& model, const Options& options) {
         result.status = lp::reference::SolveStatus::infeasible;
         result.message = "no integer feasible solution found";
     }
-
     return result;
 }
 
