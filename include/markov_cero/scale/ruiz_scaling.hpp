@@ -1,6 +1,7 @@
 #pragma once
 
 #include "markov_cero/lp/reference/revised_simplex.hpp"
+#include "markov_cero/model/model.hpp"
 #include "markov_cero/transform/sparse_canonical_model.hpp"
 
 #include <cstddef>
@@ -28,5 +29,12 @@ struct RuizScalers {
                                       const RuizOptions& options = {});
 
 void unscale_solution(const RuizScalers& scalers, lp::reference::Result& solution);
+
+[[nodiscard]] RuizScalers equilibrate_model(model::Model& model,
+                                            const RuizOptions& options = {});
+
+void unscale_model_solution(const RuizScalers& scalers,
+                            std::vector<double>& primal,
+                            std::vector<double>& dual);
 
 } // namespace markov_cero::scale

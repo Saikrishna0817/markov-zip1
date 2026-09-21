@@ -5,6 +5,7 @@
 
 #include "markov_cero/lp/first_order/pdlp.hpp"
 #include "markov_cero/gpu/pdhg_step.hpp"
+#include "markov_cero/scale/ruiz_scaling.hpp"
 
 #include <algorithm>
 #include <cassert>
@@ -83,58 +84,79 @@ PdlpResult solve_pdlp(const model::Model& model, const PdlpOptions& options) {
         return gpu::solve_pdlp_gpu(model, options);
     }
 
-    // Objective sign for minimize
-    const double obj_sign = (model.objective_sense == model::ObjectiveSense::maximize) ? -1.0 : 1.0;
+    model::Model mdl = model;
+    scale::RuizScalers scalers;
+    if (options.ruiz_scaling) {
+        scalers = scale::equilibrate_model(mdl, {options.ruiz_iterations});
+    }
 
-    // Effective cost vector c
+    const double obj_sign = (mdl.objective_sense == model::ObjectiveSense::maximize) ? -1.0 : 1.0;
+
     std::vector<double> c(n);
+    double c_norm_inf = 1.0;
     for (std::size_t j = 0; j < n; ++j) {
-        c[j] = obj_sign * model.objective[j];
+        c[j] = obj_sign * mdl.objective[j];
+        c_norm_inf = std::max(c_norm_inf, std::abs(c[j]));
     }
 
-    // Row bounds as effective b_lower, b_upper for dual feasibility projection
     std::vector<double> b_lo(m), b_hi(m);
+    double b_norm_inf = 1.0;
     for (std::size_t i = 0; i < m; ++i) {
-        b_lo[i] = (model.row_lower[i].kind == model::BoundKind::negative_infinity)
+        b_lo[i] = (mdl.row_lower[i].kind == model::BoundKind::negative_infinity)
                       ? -1e300
-                      : model.row_lower[i].value;
-        b_hi[i] = (model.row_upper[i].kind == model::BoundKind::positive_infinity)
+                      : mdl.row_lower[i].value;
+        b_hi[i] = (mdl.row_upper[i].kind == model::BoundKind::positive_infinity)
                       ? +1e300
-                      : model.row_upper[i].value;
+                      : mdl.row_upper[i].value;
+        if (std::abs(b_lo[i]) < 1e299) b_norm_inf = std::max(b_norm_inf, std::abs(b_lo[i]));
+        if (std::abs(b_hi[i]) < 1e299) b_norm_inf = std::max(b_norm_inf, std::abs(b_hi[i]));
     }
 
-    // Diagonal preconditioning (Chambolle & Pock 2011; Applegate et al. 2021)
     std::vector<double> row_norms(m, 0.0);
     std::vector<double> col_norms(n, 0.0);
     for (std::size_t col = 0; col < n; ++col) {
-        for (std::size_t ptr = model.matrix.column_start[col];
-             ptr < model.matrix.column_start[col + 1]; ++ptr) {
-            const double val = std::abs(model.matrix.value[ptr]);
+        for (std::size_t ptr = mdl.matrix.column_start[col];
+             ptr < mdl.matrix.column_start[col + 1]; ++ptr) {
+            const double val = std::abs(mdl.matrix.value[ptr]);
             col_norms[col] += val;
-            row_norms[model.matrix.row_index[ptr]] += val;
+            row_norms[mdl.matrix.row_index[ptr]] += val;
         }
     }
-
-    std::vector<double> tau(n, 1.0);
-    std::vector<double> sigma(m, 1.0);
     for (std::size_t j = 0; j < n; ++j) {
-        tau[j] = (col_norms[j] > 1e-12) ? (options.step_size_reduction / col_norms[j]) : 1.0;
+        if (col_norms[j] < 1e-12) col_norms[j] = 1.0;
     }
     for (std::size_t i = 0; i < m; ++i) {
-        sigma[i] = (row_norms[i] > 1e-12) ? (options.step_size_reduction / row_norms[i]) : 1.0;
+        if (row_norms[i] < 1e-12) row_norms[i] = 1.0;
     }
 
-    // Initialize primal x and dual y to zero
+    double omega = (options.initial_primal_weight > 0.0)
+                       ? options.initial_primal_weight
+                       : std::clamp(std::sqrt(c_norm_inf / b_norm_inf), 0.01, 100.0);
+    double eta = std::clamp(options.step_size_reduction, 0.1, 0.99);
+
+    std::vector<double> tau(n);
+    std::vector<double> sigma(m);
+    auto update_step_sizes = [&]() {
+        for (std::size_t j = 0; j < n; ++j) {
+            tau[j] = (eta / omega) / col_norms[j];
+        }
+        for (std::size_t i = 0; i < m; ++i) {
+            sigma[i] = (eta * omega) / row_norms[i];
+        }
+    };
+    update_step_sizes();
+
     std::vector<double> x(n, 0.0);
     std::vector<double> y(m, 0.0);
     std::vector<double> x_bar(n, 0.0);
     std::vector<double> x_avg(n, 0.0);
     std::vector<double> y_avg(m, 0.0);
+    std::vector<double> delta_x(n, 0.0);
 
-    // Project initial x onto variable bounds
     for (std::size_t j = 0; j < n; ++j) {
-        x[j] = project_bound(0.0, model.variable_lower[j], model.variable_upper[j]);
+        x[j] = project_bound(0.0, mdl.variable_lower[j], mdl.variable_upper[j]);
         x_bar[j] = x[j];
+        x_avg[j] = x[j];
     }
 
     std::size_t iter = 0;
@@ -146,30 +168,51 @@ PdlpResult solve_pdlp(const model::Model& model, const PdlpOptions& options) {
     double last_restart_score = 1e300;
 
     while (iter < options.max_iterations) {
-        // --- Primal update: x^{k+1} = proj_[l,u](x^k - tau_j * (c + A^T y^k)) ---
-        auto At_y = spmv_t(model.matrix, y);
+        auto At_y = spmv_t(mdl.matrix, y);
         std::vector<double> x_prev = x;
+        double dx_norm_sq = 0.0;
         for (std::size_t j = 0; j < n; ++j) {
             double g = c[j] + At_y[j];
             double xnew = x[j] - tau[j] * g;
-            x[j] = project_bound(xnew, model.variable_lower[j], model.variable_upper[j]);
+            double proj_x = project_bound(xnew, mdl.variable_lower[j], mdl.variable_upper[j]);
+            const double dx = proj_x - x[j];
+            delta_x[j] = dx;
+            dx_norm_sq += col_norms[j] * dx * dx;
+            x[j] = proj_x;
         }
 
-        // --- Extrapolation: x_bar^{k+1} = 2 x^{k+1} - x^k ---
         for (std::size_t j = 0; j < n; ++j) {
             x_bar[j] = 2.0 * x[j] - x_prev[j];
         }
 
-        // --- Dual Moreau Proximal update: v = y^k + sigma_i * A * x_bar; y^{k+1} = v - sigma_i *
-        // clamp(v/sigma_i, b_lo, b_hi) ---
-        auto Ax_bar = spmv(model.matrix, x_bar);
+        if (options.adaptive_step_size && iter % 10 == 0 && dx_norm_sq > 1e-14) {
+            auto Adx = spmv(mdl.matrix, delta_x);
+            double Adx_norm_sq = 0.0;
+            for (std::size_t i = 0; i < m; ++i) {
+                Adx_norm_sq += (Adx[i] * Adx[i]) / row_norms[i];
+            }
+            if (Adx_norm_sq > 1e-14) {
+                double L_local = std::sqrt(Adx_norm_sq / dx_norm_sq);
+                if (L_local > 1e-6) {
+                    double target_eta = 0.95 / L_local;
+                    if (target_eta < eta) {
+                        eta = std::max(0.1, std::max(target_eta, eta * 0.8));
+                        update_step_sizes();
+                    } else if (target_eta > 1.05 * eta && eta < 0.99) {
+                        eta = std::min(0.99, eta * 1.05);
+                        update_step_sizes();
+                    }
+                }
+            }
+        }
+
+        auto Ax_bar = spmv(mdl.matrix, x_bar);
         for (std::size_t i = 0; i < m; ++i) {
             double v = y[i] + sigma[i] * Ax_bar[i];
             double clamped = std::clamp(v / sigma[i], b_lo[i], b_hi[i]);
             y[i] = v - sigma[i] * clamped;
         }
 
-        // --- Ergodic averaging ---
         ++avg_count;
         for (std::size_t j = 0; j < n; ++j) {
             x_avg[j] += (x[j] - x_avg[j]) / static_cast<double>(avg_count);
@@ -181,10 +224,8 @@ PdlpResult solve_pdlp(const model::Model& model, const PdlpOptions& options) {
         ++iter;
         ++iters_since_restart;
 
-        // --- Convergence check every restart_every iterations ---
         if (iter % options.restart_every == 0) {
-            // Primal infeasibility: max_i |A x_avg[i] - proj_i| / (1.0 + |proj_i|)
-            auto Ax_avg = spmv(model.matrix, x_avg);
+            auto Ax_avg = spmv(mdl.matrix, x_avg);
             double max_prim_viol = 0.0;
             for (std::size_t i = 0; i < m; ++i) {
                 double proj = std::clamp(Ax_avg[i], b_lo[i], b_hi[i]);
@@ -194,32 +235,21 @@ PdlpResult solve_pdlp(const model::Model& model, const PdlpOptions& options) {
             }
             primal_infeas = max_prim_viol;
 
-            // Dual infeasibility: ||c + A^T y_avg||_projected
-            auto At_y_avg = spmv_t(model.matrix, y_avg);
+            auto At_y_avg = spmv_t(mdl.matrix, y_avg);
             double dual_res_sq = 0.0;
             double c_scale = 1.0;
             for (std::size_t j = 0; j < n; ++j) {
                 double g = c[j] + At_y_avg[j];
-                double xl = (model.variable_lower[j].kind == model::BoundKind::negative_infinity)
-                                ? -1e300
-                                : model.variable_lower[j].value;
-                double xu = (model.variable_upper[j].kind == model::BoundKind::positive_infinity)
-                                ? +1e300
-                                : model.variable_upper[j].value;
-                double projected_g = g;
-                if (x_avg[j] <= xl + 1e-6) {
-                    projected_g = std::min(0.0, g);
-                } else if (x_avg[j] >= xu - 1e-6) {
-                    projected_g = std::max(0.0, g);
-                }
-                dual_res_sq += projected_g * projected_g;
+                double x_proj = project_bound(
+                    x_avg[j] - g, mdl.variable_lower[j], mdl.variable_upper[j]);
+                double diff = x_avg[j] - x_proj;
+                dual_res_sq += diff * diff;
                 c_scale = std::max(c_scale, std::abs(c[j]));
             }
             dual_infeas = std::sqrt(dual_res_sq) / c_scale;
 
-            // Duality gap
-            double primal_obj = dot(c, x_avg) + model.objective_offset;
-            double dual_obj = model.objective_offset;
+            double primal_obj = dot(c, x_avg) + mdl.objective_offset;
+            double dual_obj = mdl.objective_offset;
             for (std::size_t i = 0; i < m; ++i) {
                 if (y_avg[i] > 0.0 && b_hi[i] < 1e299) {
                     dual_obj -= y_avg[i] * b_hi[i];
@@ -229,12 +259,12 @@ PdlpResult solve_pdlp(const model::Model& model, const PdlpOptions& options) {
             }
             for (std::size_t j = 0; j < n; ++j) {
                 double g = c[j] + At_y_avg[j];
-                double xl = (model.variable_lower[j].kind == model::BoundKind::negative_infinity)
+                double xl = (mdl.variable_lower[j].kind == model::BoundKind::negative_infinity)
                                 ? -1e300
-                                : model.variable_lower[j].value;
-                double xu = (model.variable_upper[j].kind == model::BoundKind::positive_infinity)
+                                : mdl.variable_lower[j].value;
+                double xu = (mdl.variable_upper[j].kind == model::BoundKind::positive_infinity)
                                 ? +1e300
-                                : model.variable_upper[j].value;
+                                : mdl.variable_upper[j].value;
                 if (g > 0.0 && xl > -1e299) {
                     dual_obj += g * xl;
                 } else if (g < 0.0 && xu < 1e299) {
@@ -245,13 +275,14 @@ PdlpResult solve_pdlp(const model::Model& model, const PdlpOptions& options) {
 
             if (primal_infeas <= options.primal_tolerance &&
                 dual_infeas <= options.dual_tolerance && gap_val <= options.gap_tolerance) {
-                // Convergence!
-                double final_obj = dot(model.objective, x_avg) + model.objective_offset;
                 PdlpResult res;
                 res.status = PdlpStatus::optimal;
                 res.primal = x_avg;
                 res.dual = y_avg;
-                res.objective = final_obj;
+                if (options.ruiz_scaling) {
+                    scale::unscale_model_solution(scalers, res.primal, res.dual);
+                }
+                res.objective = dot(model.objective, res.primal) + model.objective_offset;
                 res.primal_infeasibility = primal_infeas;
                 res.dual_infeasibility = dual_infeas;
                 res.duality_gap = gap_val;
@@ -273,6 +304,14 @@ PdlpResult solve_pdlp(const model::Model& model, const PdlpOptions& options) {
             }
 
             if (do_restart) {
+                if (options.adaptive_primal_weight && primal_infeas > 1e-12 &&
+                    dual_infeas > 1e-12) {
+                    double ratio = std::sqrt(primal_infeas / dual_infeas);
+                    ratio = std::clamp(ratio, 0.05, 20.0);
+                    omega = std::clamp(
+                        omega * std::pow(ratio, options.primal_weight_smoothing), 1e-6, 1e6);
+                    update_step_sizes();
+                }
                 x = x_avg;
                 y = y_avg;
                 for (std::size_t j = 0; j < n; ++j) {
@@ -285,13 +324,14 @@ PdlpResult solve_pdlp(const model::Model& model, const PdlpOptions& options) {
         }
     }
 
-    // Return best ergodic iterate even if not converged
-    double final_obj = dot(model.objective, x_avg) + model.objective_offset;
     PdlpResult res;
     res.status = PdlpStatus::iteration_limit;
     res.primal = x_avg;
     res.dual = y_avg;
-    res.objective = final_obj;
+    if (options.ruiz_scaling) {
+        scale::unscale_model_solution(scalers, res.primal, res.dual);
+    }
+    res.objective = dot(model.objective, res.primal) + model.objective_offset;
     res.primal_infeasibility = primal_infeas;
     res.dual_infeasibility = dual_infeas;
     res.duality_gap = gap_val;

@@ -37,13 +37,22 @@ struct PdhgState {
 
     std::size_t num_variables{0};
     std::size_t num_constraints{0};
+
+    std::vector<double> col_norms;
+    std::vector<double> row_norms;
+    double eta{0.99};
+    double omega{1.0};
 };
 
 // Initialize device-resident PDHG state from Model and pre-built CSR matrices
 PdhgState create_pdhg_state(const model::Model& model,
                             const DeviceCsr& A,
                             const DeviceCsr& At,
-                            double step_size_reduction = 0.9);
+                            double step_size_reduction = 0.9,
+                            double primal_weight = 1.0);
+
+// Update device-resident step sizes tau and sigma from current eta and omega
+void pdhg_update_step_sizes(PdhgState& state, double eta, double omega);
 
 // Execute a single fused PDHG iteration (dispatches to CUDA if enabled, else CPU)
 void pdhg_step(PdhgState& state, std::size_t avg_count);

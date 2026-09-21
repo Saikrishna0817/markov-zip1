@@ -26,6 +26,12 @@ struct PdlpOptions {
     Backend backend{Backend::cpu};
     RestartStrategy restart_strategy{RestartStrategy::adaptive};
     double restart_reduction_factor{0.368};
+    bool adaptive_step_size{true};
+    bool adaptive_primal_weight{true};
+    double initial_primal_weight{0.0};
+    double primal_weight_smoothing{0.5};
+    bool ruiz_scaling{true};
+    std::size_t ruiz_iterations{10};
 };
 
 enum class PdlpStatus { optimal, iteration_limit, infeasible_or_unbounded, numerical_failure };
