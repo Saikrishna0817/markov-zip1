@@ -9,6 +9,9 @@
 #include "markov_cero/milp/parallel_tree_search.hpp"
 #include "markov_cero/milp/strong_branching.hpp"
 #include "markov_cero/presolve/presolve.hpp"
+#include "markov_cero/qp/admm_solver.hpp"
+#include "markov_cero/qp/model.hpp"
+#include "markov_cero/qp/verifier.hpp"
 #include "markov_cero/scale/ruiz_scaling.hpp"
 #include "markov_cero/transform/canonicalize.hpp"
 #include "markov_cero/transform/sparse_canonical_model.hpp"
@@ -35,48 +38,34 @@ int main(int argc, char** argv) {
     if (cli.help_requested) return 0;
     if (cli.error) return cli.exit_code;
 
-    double pdlp_res_primal_infeas = 0.0;
-    double pdlp_res_dual_infeas = 0.0;
-    double pdlp_res_gap = 0.0;
-    double pdlp_h2d_ms = 0.0;
-    double pdlp_kernel_ms = 0.0;
-    double pdlp_d2h_ms = 0.0;
-    double pdlp_total_ms = 0.0;
+    double pdlp_res_primal_infeas = 0.0, pdlp_res_dual_infeas = 0.0, pdlp_res_gap = 0.0;
+    double pdlp_h2d_ms = 0.0, pdlp_kernel_ms = 0.0, pdlp_d2h_ms = 0.0, pdlp_total_ms = 0.0;
 
-const auto started = std::chrono::steady_clock::now();
+    const auto started = std::chrono::steady_clock::now();
     std::ifstream input(cli.path);
     if (!input) {
         std::cerr << "cannot open input\n";
         return 8;
     }
 
-    bool original_verified = false;
-    bool canonical_verified = false;
-    std::string original_message;
+    bool original_verified = false, canonical_verified = false;
+    std::string original_message, error;
     std::vector<double> original_primal;
-    double original_objective = 0;
+    double original_objective = 0.0;
     markov_cero::verify::PrimalVerificationReport primal_report;
     markov_cero::verify::ReferenceVerification canonical_report;
     markov_cero::lp::reference::Result result;
     std::optional<markov_cero::lp::dual::BasisState> basis_to_save;
-    bool used_warm_start = false;
-    bool used_cold_fallback = false;
+    bool used_warm_start = false, used_cold_fallback = false;
     markov_cero::presolve::PresolveResult presolve_res;
     markov_cero::scale::RuizScalers scalers;
-    bool presolve_applied = false;
-    bool scaling_applied = false;
-    std::string error;
+    bool presolve_applied = false, scaling_applied = false;
 
     std::string resolved_engine = cli.engine_name;
-    std::size_t nodes_explored = 0;
-    std::size_t total_lp_iterations = 0;
-    double best_bound = 0.0;
-    double relative_gap = 0.0;
-    std::size_t cuts_generated = 0;
-    std::size_t heuristics_found = 0;
-    std::size_t model_rows = 0;
-    std::size_t model_cols = 0;
-    std::size_t model_nnz = 0;
+    std::size_t nodes_explored = 0, total_lp_iterations = 0;
+    double best_bound = 0.0, relative_gap = 0.0;
+    std::size_t cuts_generated = 0, heuristics_found = 0;
+    std::size_t model_rows = 0, model_cols = 0, model_nnz = 0;
 
     try {
         const auto model = markov_cero::io::parse_mps(input);
@@ -93,7 +82,11 @@ const auto started = std::chrono::steady_clock::now();
         }
 
         if (resolved_engine == "auto") {
-            resolved_engine = has_discrete ? "milp" : "primal";
+            if (model.has_quadratic_objective) {
+                resolved_engine = has_discrete ? "miqp" : "qp";
+            } else {
+                resolved_engine = has_discrete ? "milp" : "primal";
+            }
         }
 
         if (resolved_engine == "parallel") {
@@ -126,15 +119,7 @@ const auto started = std::chrono::steady_clock::now();
                 primal_report = markov_cero::verify::verify_primal(model, candidate);
                 original_verified = primal_report.passed;
                 canonical_verified = true;
-                std::string viol_desc;
-                if (!primal_report.violations.empty()) {
-                    const auto& v = primal_report.violations[0];
-                    viol_desc = v.category + " idx=" + std::to_string(v.index) +
-                                " act=" + std::to_string(v.actual) +
-                                " bnd=" + std::to_string(v.bound) +
-                                " diff=" + std::to_string(v.magnitude) +
-                                " allow=" + std::to_string(v.allowance);
-                }
+                const auto viol_desc = markov_cero::apps::format_violation(primal_report);
                 original_message = original_verified ? "original primal verified"
                                                      : ("original primal rejected: " + viol_desc);
                 if (!original_verified) {
@@ -184,15 +169,7 @@ const auto started = std::chrono::steady_clock::now();
                                                        cli.pdlp_tolerance);
                 original_verified = primal_report.passed;
                 canonical_verified = true;
-                std::string viol_desc;
-                if (!primal_report.violations.empty()) {
-                    const auto& v = primal_report.violations[0];
-                    viol_desc = v.category + " idx=" + std::to_string(v.index) +
-                                " act=" + std::to_string(v.actual) +
-                                " bnd=" + std::to_string(v.bound) +
-                                " diff=" + std::to_string(v.magnitude) +
-                                " allow=" + std::to_string(v.allowance);
-                }
+                const auto viol_desc = markov_cero::apps::format_violation(primal_report);
                 original_message = original_verified ? "original primal verified"
                                                      : ("original primal rejected: " + viol_desc);
                 if (!original_verified) {
@@ -210,7 +187,56 @@ const auto started = std::chrono::steady_clock::now();
             nodes_explored = 1;
             best_bound = original_objective;
             relative_gap = 0.0;
-        } else if (resolved_engine == "milp") {
+        } else if (resolved_engine == "qp") {
+            const auto qp_model = markov_cero::qp::make_quadratic_model(model);
+            markov_cero::qp::QpOptions qopts;
+            qopts.absolute_tolerance = 1e-5;
+            qopts.relative_tolerance = 1e-5;
+            qopts.max_iterations =
+                (cli.options.iteration_limit != 10000 && cli.options.iteration_limit > 0)
+                    ? cli.options.iteration_limit
+                    : 4000;
+            const auto qpres = markov_cero::qp::solve_qp(qp_model, qopts);
+            total_lp_iterations = qpres.iterations;
+            nodes_explored = 1;
+            best_bound = qpres.objective_value;
+            relative_gap = 0.0;
+            if (qpres.status == markov_cero::qp::QpStatus::optimal) {
+                result.status = markov_cero::lp::reference::SolveStatus::optimal;
+                result.primal = qpres.x;
+                result.objective = qpres.objective_value;
+                result.message = "QP solved to optimality";
+                original_primal = qpres.x;
+                original_objective = qpres.objective_value;
+                const auto rep = markov_cero::qp::verify_qp_solution(qp_model, qpres);
+                original_verified = rep.passed;
+                canonical_verified = true;
+                original_message = rep.passed ? "QP KKT certificate verified"
+                                              : ("QP verification failed: " + rep.failure_reason);
+                if (!rep.passed) {
+                    result.status = markov_cero::lp::reference::SolveStatus::numerical_failure;
+                    result.message = original_message;
+                }
+            } else if (qpres.status == markov_cero::qp::QpStatus::primal_infeasible) {
+                result.status = markov_cero::lp::reference::SolveStatus::infeasible;
+                result.message = "QP primal infeasible";
+                canonical_verified = true;
+                original_message = "original primal not applicable";
+            } else if (qpres.status == markov_cero::qp::QpStatus::dual_infeasible) {
+                result.status = markov_cero::lp::reference::SolveStatus::unbounded;
+                result.message = "QP dual infeasible (unbounded)";
+                canonical_verified = true;
+                original_message = "original primal not applicable";
+            } else if (qpres.status == markov_cero::qp::QpStatus::non_convex) {
+                result.status = markov_cero::lp::reference::SolveStatus::invalid_model;
+                result.message = "Non-convex QP objective is not supported";
+                original_message = "non-convex QP rejected";
+            } else {
+                result.status = markov_cero::lp::reference::SolveStatus::numerical_failure;
+                result.message = "QP solve failed";
+                original_message = "QP solve failed";
+            }
+        } else if (resolved_engine == "milp" || resolved_engine == "miqp") {
             const auto milp_res = markov_cero::milp::solve(model, cli.milp_options);
             result.status = milp_res.status;
             result.message = milp_res.message;
@@ -231,15 +257,7 @@ const auto started = std::chrono::steady_clock::now();
                 primal_report = markov_cero::verify::verify_primal(model, candidate);
                 original_verified = primal_report.passed;
                 canonical_verified = true;
-                std::string viol_desc;
-                if (!primal_report.violations.empty()) {
-                    const auto& v = primal_report.violations[0];
-                    viol_desc = v.category + " idx=" + std::to_string(v.index) +
-                                " act=" + std::to_string(v.actual) +
-                                " bnd=" + std::to_string(v.bound) +
-                                " diff=" + std::to_string(v.magnitude) +
-                                " allow=" + std::to_string(v.allowance);
-                }
+                const auto viol_desc = markov_cero::apps::format_violation(primal_report);
                 original_message = original_verified ? "original primal verified"
                                                      : ("original primal rejected: " + viol_desc);
                 if (!original_verified) {

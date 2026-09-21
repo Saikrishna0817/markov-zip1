@@ -157,6 +157,11 @@ void Model::validate() const {
             row_lower[i].value > row_upper[i].value)
             throw std::invalid_argument("inconsistent row bounds");
     }
+    if (has_quadratic_objective) {
+        quadratic_matrix.validate();
+        if (quadratic_matrix.column_count != columns || quadratic_matrix.row_count != columns)
+            throw std::invalid_argument("quadratic matrix dimension mismatch");
+    }
 }
 
 const char* to_string(ObjectiveSense sense) noexcept {

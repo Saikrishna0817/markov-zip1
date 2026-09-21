@@ -20,7 +20,15 @@ enum class Section {
     rhs,
     ranges,
     bounds,
+    quadobj,
+    qmatrix,
     end
+};
+struct QuadEntry {
+    std::size_t col1;
+    std::size_t col2;
+    double value;
+    bool is_quadobj;
 };
 struct Row {
     char type;
@@ -73,8 +81,9 @@ double number(const std::string& text, std::size_t line) {
     return value;
 }
 bool header(const std::string& token) {
-    static const std::vector<std::string> names{"NAME", "OBJSENSE", "OBJNAME", "ROWS",  "COLUMNS",
-                                                "RHS",  "RANGES",   "BOUNDS",  "ENDATA"};
+    static const std::vector<std::string> names{"NAME", "OBJSENSE", "OBJNAME", "ROWS",
+                                                "COLUMNS", "RHS", "RANGES", "BOUNDS",
+                                                "QUADOBJ", "QMATRIX", "ENDATA"};
     return std::find(names.begin(), names.end(), token) != names.end();
 }
 } // namespace
@@ -101,6 +110,7 @@ model::Model parse_mps(std::istream& input, const MpsLimits& limits) {
         double value;
     };
     std::vector<Coefficient> coefficients;
+    std::vector<QuadEntry> quad_entries;
     std::string rhs_vector, range_vector, bound_vector;
     bool in_integer_block = false;
     bool saw_end = false;
@@ -190,6 +200,10 @@ model::Model parse_mps(std::istream& input, const MpsLimits& limits) {
                 section = Section::ranges;
             else if (first == "BOUNDS")
                 section = Section::bounds;
+            else if (first == "QUADOBJ")
+                section = Section::quadobj;
+            else if (first == "QMATRIX")
+                section = Section::qmatrix;
             else {
                 section = Section::end;
                 saw_end = true;
@@ -350,6 +364,16 @@ model::Model parse_mps(std::istream& input, const MpsLimits& limits) {
                 throw MpsError(line_number, "unsupported bound type: " + type);
             continue;
         }
+        if (section == Section::quadobj || section == Section::qmatrix) {
+            if (fields.size() != 3U)
+                throw MpsError(line_number,
+                               "QUADOBJ/QMATRIX record requires two columns and a value");
+            const auto col1 = find_or_add_column(fields[0]);
+            const auto col2 = find_or_add_column(fields[1]);
+            const double val = number(fields[2], line_number);
+            quad_entries.push_back({col1, col2, val, section == Section::quadobj});
+            continue;
+        }
         throw MpsError(line_number, "record outside a supported section");
     }
     if (!saw_end)
@@ -408,6 +432,17 @@ model::Model parse_mps(std::istream& input, const MpsLimits& limits) {
         result.variable_lower.push_back(column.lower);
         result.variable_upper.push_back(column.upper);
         result.variable_type.push_back(column.type);
+    }
+    if (!quad_entries.empty()) {
+        model::SparseMatrixBuilder q_builder(columns.size(), columns.size());
+        for (const auto& qe : quad_entries) {
+            q_builder.add(qe.col1, qe.col2, qe.value);
+            if (qe.is_quadobj && qe.col1 != qe.col2) {
+                q_builder.add(qe.col2, qe.col1, qe.value);
+            }
+        }
+        result.has_quadratic_objective = true;
+        result.quadratic_matrix = q_builder.build();
     }
     result.validate();
     return result;

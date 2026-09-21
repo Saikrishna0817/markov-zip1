@@ -47,11 +47,16 @@ add_library(markov_cero_core STATIC
   src/milp/gomory.cpp
   src/milp/heuristics.cpp
   src/milp/milp_solver.cpp
+  src/milp/node_lp.cpp
   src/milp/mir.cpp
   src/milp/parallel_tree_search.cpp
   src/milp/shared_incumbent.cpp
   src/milp/strong_branching.cpp
   src/milp/work_queue.cpp
+  src/qp/model.cpp
+  src/qp/kkt.cpp
+  src/qp/admm_solver.cpp
+  src/qp/verifier.cpp
   gpu/src/buffer.cpp
   gpu/src/csr.cpp
   gpu/src/device.cpp
@@ -156,6 +161,8 @@ add_executable(gpu_pdhg_kkt_test gpu/tests/pdhg_kkt_test.cpp)
 target_link_libraries(gpu_pdhg_kkt_test PRIVATE markov_cero_core)
 add_executable(gpu_pdhg_timing_test gpu/tests/pdhg_timing_test.cpp)
 target_link_libraries(gpu_pdhg_timing_test PRIVATE markov_cero_core)
+add_executable(qp_test tests/qp_test.cpp)
+target_link_libraries(qp_test PRIVATE markov_cero_core)
 add_test(NAME build_info COMMAND build_info_test)
 add_test(NAME model_verifier COMMAND model_test)
 add_test(NAME mps_parser COMMAND mps_parser_test)
@@ -186,6 +193,7 @@ add_test(NAME gpu_pdhg_restart COMMAND gpu_pdhg_restart_test)
 add_test(NAME gpu_pdhg_adaptive COMMAND gpu_pdhg_adaptive_test)
 add_test(NAME gpu_pdhg_kkt COMMAND gpu_pdhg_kkt_test)
 add_test(NAME gpu_pdhg_timing COMMAND gpu_pdhg_timing_test)
+add_test(NAME qp COMMAND qp_test)
 add_test(NAME json_records COMMAND python3 -c "import json, glob; [json.load(open(f)) for f in glob.glob('**/*.json', recursive=True) if not f.startswith('_')]")
 add_test(NAME sovereignty_guard
   COMMAND ${CMAKE_COMMAND} -E env python3
@@ -193,6 +201,8 @@ add_test(NAME sovereignty_guard
     ${CMAKE_SOURCE_DIR}
     --binary $<TARGET_FILE:markov-cero-solve>)
 add_test(NAME cli_blend_optimal COMMAND markov-cero-solve ${CMAKE_SOURCE_DIR}/examples/blend.mps)
+add_test(NAME cli_qp_portfolio
+  COMMAND markov-cero-solve ${CMAKE_SOURCE_DIR}/examples/qp_portfolio.mps)
 add_test(NAME cli_refinery_feasible COMMAND markov-cero-solve ${CMAKE_SOURCE_DIR}/examples/refinery/refinery-feasible.mps)
 add_test(NAME cli_refinery_infeasible COMMAND markov-cero-solve ${CMAKE_SOURCE_DIR}/examples/refinery/refinery-infeasible.mps)
 set_tests_properties(cli_refinery_infeasible PROPERTIES WILL_FAIL TRUE)
@@ -220,7 +230,7 @@ set_tests_properties(
   sparse_canonicalize presolve ruiz_scaling milp milp_heuristics milp_cuts
   strong_branching pdlp parallel_tree_search gpu_buffer equivalence gpu_reduction
   gpu_pdhg_step gpu_pdhg_restart gpu_pdhg_adaptive gpu_pdhg_kkt gpu_pdhg_timing
-  json_records sovereignty_guard
+  qp json_records sovereignty_guard
   cli_blend_optimal cli_refinery_feasible cli_refinery_infeasible
   cli_refinery_malformed cli_refinery_limited
   netlib_benchmarks gpu_benchmarks gpu_profiling

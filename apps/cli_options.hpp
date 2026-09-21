@@ -85,7 +85,8 @@ struct CliOptions {
                 parsed.engine_name = argv[++i];
                 if (parsed.engine_name != "primal" && parsed.engine_name != "dual" &&
                     parsed.engine_name != "pdlp" && parsed.engine_name != "milp" &&
-                    parsed.engine_name != "parallel" && parsed.engine_name != "auto") {
+                    parsed.engine_name != "parallel" && parsed.engine_name != "qp" &&
+                    parsed.engine_name != "miqp" && parsed.engine_name != "auto") {
                     std::cerr << "invalid engine: " << parsed.engine_name << "\n";
                     parsed.error = true; parsed.exit_code = 8; return parsed;
                 }

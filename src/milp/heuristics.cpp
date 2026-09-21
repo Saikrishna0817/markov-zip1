@@ -66,6 +66,15 @@ double compute_objective(const model::Model& model, const std::vector<double>& p
     for (std::size_t j = 0; j < n; ++j) {
         obj += static_cast<long double>(model.objective[j]) * primal[j];
     }
+    if (model.has_quadratic_objective &&
+        model.quadratic_matrix.column_count == primal.size()) {
+        const auto qx = model.quadratic_matrix.multiply(primal);
+        long double q_energy = 0.0;
+        for (std::size_t j = 0; j < n; ++j) {
+            q_energy += static_cast<long double>(primal[j]) * qx[j];
+        }
+        obj += 0.5 * q_energy;
+    }
     return static_cast<double>(obj);
 }
 

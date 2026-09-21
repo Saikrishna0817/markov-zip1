@@ -31,6 +31,17 @@ inline int exit_code(markov_cero::lp::reference::SolveStatus status) {
     return 7;
 }
 
+inline std::string format_violation(
+    const markov_cero::verify::PrimalVerificationReport& report) {
+    if (report.violations.empty()) return "";
+    const auto& v = report.violations[0];
+    return v.category + " idx=" + std::to_string(v.index) +
+           " act=" + std::to_string(v.actual) +
+           " bnd=" + std::to_string(v.bound) +
+           " diff=" + std::to_string(v.magnitude) +
+           " allow=" + std::to_string(v.allowance);
+}
+
 inline std::string json_escape(std::string_view text) {
     std::string out;
     out.reserve(text.size());
@@ -171,7 +182,7 @@ inline void emit_json_output(const JsonOutputData& data) {
          << json_number(data.resolved_engine == "pdlp" ? data.pdlp_total_ms
                                                        : data.elapsed_ms)
          << ","
-         << "\"limitations\":\"Sovereign LP/MILP (CPU/GPU) engine; QP is scheduled for Phase 6.\"";
+         << "\"limitations\":\"Sovereign LP/MILP/QP/MIQP (CPU/GPU) engine.\"";
     if (!data.error.empty()) {
         json << ",\"error\":\"" << json_escape(data.error) << "\"";
     }

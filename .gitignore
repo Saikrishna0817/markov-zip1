@@ -50,3 +50,4 @@ __pycache__/
 # Local data cache and runtime reports
 data/scale_study/
 reports/
+.licenses/

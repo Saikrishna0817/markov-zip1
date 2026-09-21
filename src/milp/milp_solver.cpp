@@ -1,11 +1,12 @@
 #include "markov_cero/milp/milp_solver.hpp"
 
-#include "markov_cero/lp/dual/dual_simplex.hpp"
-#include "markov_cero/lp/reference/revised_simplex.hpp"
 #include "markov_cero/milp/branch_node.hpp"
 #include "markov_cero/milp/cuts.hpp"
 #include "markov_cero/milp/heuristics.hpp"
+#include "markov_cero/milp/node_lp.hpp"
 #include "markov_cero/milp/strong_branching.hpp"
+#include "markov_cero/qp/admm_solver.hpp"
+#include "markov_cero/qp/model.hpp"
 #include "markov_cero/transform/sparse_canonical_model.hpp"
 
 #include <algorithm>
@@ -16,62 +17,6 @@
 #include <queue>
 
 namespace markov_cero::milp {
-namespace {
-
-struct NodeLpResult {
-    lp::reference::SolveStatus status{lp::reference::SolveStatus::infeasible};
-    std::vector<double> primal;
-    double objective{0.0};
-    std::size_t iterations{0};
-    std::optional<lp::dual::BasisState> basis;
-};
-
-NodeLpResult solve_node_lp(const model::Model& node_model, const Options& options,
-                           const std::optional<lp::dual::BasisState>& warm_start) {
-    NodeLpResult res;
-    try {
-        const auto canon = transform::sparse_canonicalize(node_model, /*relax_integrality=*/true);
-        const auto dense = canon.to_dense();
-
-        if (options.enable_warm_start && warm_start.has_value()) {
-            lp::dual::Options dopts;
-            dopts.iteration_limit = options.max_iterations;
-            dopts.feasibility_tolerance = options.feasibility_tolerance;
-            dopts.allow_cold_fallback = true;
-            const auto dres = lp::dual::solve(dense, dopts, warm_start);
-            res.status = dres.solution.status;
-            res.iterations =
-                dres.solution.phase_one_iterations + dres.solution.phase_two_iterations;
-            if (res.status == lp::reference::SolveStatus::optimal) {
-                res.primal = transform::reconstruct_primal(canon, dres.solution.primal);
-                res.objective = transform::reconstruct_objective(canon, dres.solution.objective);
-                res.basis = dres.basis_state;
-            }
-        } else {
-            lp::reference::Options ropts;
-            ropts.iteration_limit = options.max_iterations;
-            ropts.feasibility_tolerance = options.feasibility_tolerance;
-            const auto rres = lp::reference::solve(dense, ropts);
-            res.status = rres.status;
-            res.iterations = rres.phase_one_iterations + rres.phase_two_iterations;
-            if (res.status == lp::reference::SolveStatus::optimal) {
-                res.primal = transform::reconstruct_primal(canon, rres.primal);
-                res.objective = transform::reconstruct_objective(canon, rres.objective);
-                if (rres.basis.size() == dense.matrix.rows) {
-                    try {
-                        res.basis = lp::dual::make_basis_state(dense, rres.basis);
-                    } catch (...) {
-                    }
-                }
-            }
-        }
-    } catch (...) {
-        res.status = lp::reference::SolveStatus::numerical_failure;
-    }
-    return res;
-}
-
-} // namespace
 
 Result solve(const model::Model& model, const Options& options) {
     const auto start_time = std::chrono::steady_clock::now();
@@ -94,8 +39,37 @@ Result solve(const model::Model& model, const Options& options) {
     }
 
     if (!has_discrete) {
+        if (model.has_quadratic_objective) {
+            const auto qp = qp::make_quadratic_model(model);
+            qp::QpOptions qopts;
+            qopts.max_iterations = options.max_iterations;
+            qopts.absolute_tolerance = options.feasibility_tolerance;
+            qopts.relative_tolerance = options.feasibility_tolerance;
+            const auto qpres = qp::solve_qp(qp, qopts);
+            if (qpres.status == qp::QpStatus::optimal) {
+                result.status = lp::reference::SolveStatus::optimal;
+                result.primal = qpres.x;
+                result.objective = qpres.objective_value;
+                result.best_bound = qpres.objective_value;
+                result.relative_gap = 0.0;
+                result.message = "pure continuous QP solved to optimality";
+            } else if (qpres.status == qp::QpStatus::primal_infeasible) {
+                result.status = lp::reference::SolveStatus::infeasible;
+                result.message = "pure continuous QP is infeasible";
+            } else {
+                result.status = lp::reference::SolveStatus::numerical_failure;
+                result.message = "QP solve failed";
+            }
+            result.lp_iterations = qpres.iterations;
+            result.nodes_explored = 1;
+            const auto elapsed = std::chrono::steady_clock::now() - start_time;
+            result.runtime_ms =
+                std::chrono::duration<double, std::milli>(elapsed).count();
+            return result;
+        }
         // Pure continuous LP shortcut
-        const auto canon = transform::sparse_canonicalize(model, /*relax_integrality=*/false);
+        const auto canon =
+            transform::sparse_canonicalize(model, /*relax_integrality=*/false);
         const auto dense = canon.to_dense();
         lp::reference::Options ropts;
         ropts.iteration_limit = options.max_iterations;
@@ -103,11 +77,13 @@ Result solve(const model::Model& model, const Options& options) {
         const auto lpres = lp::reference::solve(dense, ropts);
 
         result.status = lpres.status;
-        result.lp_iterations = lpres.phase_one_iterations + lpres.phase_two_iterations;
+        result.lp_iterations =
+            lpres.phase_one_iterations + lpres.phase_two_iterations;
         result.nodes_explored = 1;
         if (result.status == lp::reference::SolveStatus::optimal) {
             result.primal = transform::reconstruct_primal(canon, lpres.primal);
-            result.objective = transform::reconstruct_objective(canon, lpres.objective);
+            result.objective =
+                transform::reconstruct_objective(canon, lpres.objective);
             result.best_bound = result.objective;
             result.relative_gap = 0.0;
             result.message = "pure continuous LP solved to optimality";
@@ -115,7 +91,8 @@ Result solve(const model::Model& model, const Options& options) {
             result.message = lpres.message;
         }
         const auto elapsed = std::chrono::steady_clock::now() - start_time;
-        result.runtime_ms = std::chrono::duration<double, std::milli>(elapsed).count();
+        result.runtime_ms =
+            std::chrono::duration<double, std::milli>(elapsed).count();
         return result;
     }
 
@@ -129,7 +106,7 @@ Result solve(const model::Model& model, const Options& options) {
     model::Model root_model = model;
 
     // 1. Solve Root Continuous LP Relaxation
-    const auto root_lp = solve_node_lp(root_model, options, std::nullopt);
+    const auto root_lp = solve_node_relaxation(root_model, options, std::nullopt);
     result.lp_iterations += root_lp.iterations;
     result.nodes_explored = 1;
 
@@ -207,7 +184,8 @@ Result solve(const model::Model& model, const Options& options) {
                 result.cuts_generated += cuts.size();
 
                 // Re-solve root LP with cuts
-                const auto cut_lp = solve_node_lp(root_model, options, root_lp.basis);
+                const auto cut_lp =
+                    solve_node_relaxation(root_model, options, root_lp.basis);
                 result.lp_iterations += cut_lp.iterations;
                 if (cut_lp.status == lp::reference::SolveStatus::optimal) {
                     current_primal = cut_lp.primal;
@@ -322,7 +300,8 @@ Result solve(const model::Model& model, const Options& options) {
             node_model.variable_lower = node->variable_lower;
             node_model.variable_upper = node->variable_upper;
 
-            node_lp_res = solve_node_lp(node_model, options, node->warm_basis);
+            node_lp_res =
+                solve_node_relaxation(node_model, options, node->warm_basis);
             result.lp_iterations += node_lp_res.iterations;
             ++result.nodes_explored;
 

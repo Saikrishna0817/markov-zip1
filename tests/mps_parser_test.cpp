@@ -124,5 +124,25 @@ int main() {
                 ++infeasible_count;
         });
     require(feasible_count == 5 && infeasible_count == 4, "exact ranged-row enumeration counts");
+
+    const std::string qp_quadobj =
+        "NAME QP1\nROWS\n N OBJ\n L C1\nCOLUMNS\n X1 OBJ 1 C1 1\n X2 OBJ 2 C1 1\n"
+        "RHS\n RHS1 C1 5\nQUADOBJ\n X1 X1 4\n X1 X2 1\n X2 X2 2\nENDATA\n";
+    const auto qp1 = markov_cero::io::parse_mps_string(qp_quadobj);
+    require(qp1.has_quadratic_objective, "qp1 has quadratic objective");
+    require(qp1.quadratic_matrix.column_count == 2, "qp1 dimension");
+    const auto prod1 = qp1.quadratic_matrix.multiply({1.0, 1.0});
+    require(std::abs(prod1[0] - 5.0) < 1e-12 && std::abs(prod1[1] - 3.0) < 1e-12,
+            "QUADOBJ matrix-vector multiplication");
+
+    const std::string qp_qmatrix =
+        "NAME QP2\nROWS\n N OBJ\nCOLUMNS\n X1 OBJ 1\n X2 OBJ 2\n"
+        "QMATRIX\n X1 X1 6\n X1 X2 2\n X2 X1 2\n X2 X2 8\nENDATA\n";
+    const auto qp2 = markov_cero::io::parse_mps_string(qp_qmatrix);
+    require(qp2.has_quadratic_objective, "qp2 has quadratic objective");
+    const auto prod2 = qp2.quadratic_matrix.multiply({1.0, 1.0});
+    require(std::abs(prod2[0] - 8.0) < 1e-12 && std::abs(prod2[1] - 10.0) < 1e-12,
+            "QMATRIX matrix-vector multiplication");
+
     return 0;
 }

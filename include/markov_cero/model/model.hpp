@@ -63,6 +63,8 @@ struct Model final {
     std::vector<VariableType> variable_type;
     std::vector<std::string> row_name;
     std::vector<std::string> variable_name;
+    bool has_quadratic_objective{false};
+    SparseMatrixCSC quadratic_matrix;
 
     void validate() const;
 };

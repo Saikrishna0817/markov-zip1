@@ -1,4 +1,4 @@
 instance,rows,cols,integers,reference_objective,computed_objective,relative_error,status,verified,original_verified,nodes_explored,lp_iterations,cuts_generated,heuristics_found,runtime_ms,max_primal_violation,max_integrality_violation,pass
-STEIN9,13,9,9,5.0,5,0.0,Optimal,True,True,43,1406,3,2,26.274752,0,0,True
-STEIN15,36,15,15,9.0,9,0.0,Optimal,True,True,273,20018,2,2,619.583976,0,1.1102230246251565e-16,True
-FLUGPL,18,18,11,1201500.0,1201500,0.0,Optimal,True,True,1431,61547,5,0,503.285254,3.1086244689504383e-15,3.552713678800501e-15,True
+STEIN9,13,9,9,5.0,5,0.0,Optimal,True,True,43,1406,3,2,21.543171,0,0,True
+STEIN15,36,15,15,9.0,9,0.0,Optimal,True,True,273,20018,2,2,627.906871,0,1.1102230246251565e-16,True
+FLUGPL,18,18,11,1201500.0,1201500,0.0,Optimal,True,True,1431,61547,5,0,516.026605,3.1086244689504383e-15,3.552713678800501e-15,True
