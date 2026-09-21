@@ -47,5 +47,6 @@ __pycache__/
 .vscode/
 .idea/
 
-# Local data cache
+# Local data cache and runtime reports
 data/
+reports/

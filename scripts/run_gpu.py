@@ -8,6 +8,7 @@ Generates a consolidated, reproducible CSV reporting four-part GPU timing (D-GPU
 import argparse
 import csv
 import json
+import math
 import os
 import subprocess
 import sys
@@ -95,6 +96,9 @@ def run_configuration(
         return {
             "exit_code": proc.returncode,
             "status": "ParseError",
+            "rows": 0,
+            "cols": 0,
+            "nonzeros": 0,
             "verified": False,
             "objective": float("nan"),
             "iterations": 0,
@@ -111,6 +115,9 @@ def run_configuration(
     return {
         "exit_code": proc.returncode,
         "status": parsed.get("status", "Unknown"),
+        "rows": parsed.get("rows", 0),
+        "cols": parsed.get("cols", 0),
+        "nonzeros": parsed.get("nonzeros", 0),
         "verified": parsed.get("verified", False),
         "objective": parsed.get("objective", float("nan")),
         "iterations": iters,
@@ -137,6 +144,10 @@ def main():
     )
     parser.add_argument("--timeout", type=int, default=120, help="Per-run timeout in seconds")
     parser.add_argument(
+        "--max-simplex-rows", type=int, default=0,
+        help="Skip simplex baseline if rows exceed this value (0 = no limit)"
+    )
+    parser.add_argument(
         "--output", default="reports/gpu_benchmark.csv", help="Output path for benchmark CSV"
     )
 
@@ -156,7 +167,8 @@ def main():
     print("=" * 105)
 
     header = (
-        "{:<8} {:>5} {:>5} | {:>9} {:>7} | {:>9} {:>7} | {:>7} {:>7} {:>7} {:>8} | {:>8}"
+        "{:<12} {:>5} {:>5} | {:>9} {:>6} | {:>8} {:>6} | "
+        "{:>7} {:>7} {:>7} {:>8} | {:>8}"
     )
     print(
         header.format(
@@ -183,9 +195,10 @@ def main():
                 print(f"[!] Warning: Cannot find {mps_file}, skipping.")
                 continue
 
-        # 1. CPU Simplex baseline
-        res_simplex = run_configuration(
-            solver, mps_file, engine="dual", tolerance=args.tolerance, timeout=args.timeout
+        # 1. GPU PDLP
+        res_gpu = run_configuration(
+            solver, mps_file, engine="pdlp", backend="gpu",
+            tolerance=args.tolerance, timeout=args.timeout
         )
 
         # 2. CPU PDLP
@@ -194,11 +207,23 @@ def main():
             tolerance=args.tolerance, timeout=args.timeout
         )
 
-        # 3. GPU PDLP
-        res_gpu = run_configuration(
-            solver, mps_file, engine="pdlp", backend="gpu",
-            tolerance=args.tolerance, timeout=args.timeout
-        )
+        rows = res_gpu["rows"] or res_cpu["rows"] or meta["rows"]
+        cols = res_gpu["cols"] or res_cpu["cols"] or meta["cols"]
+        nnz = res_gpu["nonzeros"] or res_cpu["nonzeros"] or 0
+
+        # 3. CPU Simplex baseline (optionally skip on massive instances)
+        if args.max_simplex_rows > 0 and rows > args.max_simplex_rows:
+            res_simplex = {
+                "exit_code": 0, "status": "Skipped", "verified": False,
+                "rows": rows, "cols": cols, "nonzeros": nnz,
+                "objective": float("nan"), "iterations": 0, "time_ms": float("nan"),
+                "h2d_ms": 0.0, "kernel_ms": 0.0, "d2h_ms": 0.0, "total_ms": float("nan"),
+                "error": f"Skipped (> {args.max_simplex_rows} rows)"
+            }
+        else:
+            res_simplex = run_configuration(
+                solver, mps_file, engine="dual", tolerance=args.tolerance, timeout=args.timeout
+            )
 
         speedup_kernel = (
             (res_cpu["time_ms"] / res_gpu["kernel_ms"]) if res_gpu["kernel_ms"] > 0 else 0.0
@@ -206,8 +231,11 @@ def main():
         speedup_end_to_end = (
             (res_cpu["time_ms"] / res_gpu["total_ms"]) if res_gpu["total_ms"] > 0 else 0.0
         )
+        smplx_ms = res_simplex["time_ms"]
         speedup_vs_simplex = (
-            (res_simplex["time_ms"] / res_gpu["total_ms"]) if res_gpu["total_ms"] > 0 else 0.0
+            (smplx_ms / res_gpu["total_ms"])
+            if (res_gpu["total_ms"] > 0 and smplx_ms > 0 and not math.isnan(smplx_ms))
+            else 0.0
         )
 
         inst_passed = (
@@ -218,23 +246,26 @@ def main():
         if not inst_passed:
             all_passed = False
 
+        smplx_str = f"{smplx_ms:.2f}" if not math.isnan(smplx_ms) else "N/A"
         row = (
-            "{:<8} {:>5} {:>5} | {:>9.2f} {:>7} | {:>9.2f} {:>7} | "
+            "{:<12} {:>5} {:>5} | {:>9} {:>6} | {:>8.2f} {:>6} | "
             "{:>7.3f} {:>7.3f} {:>7.3f} {:>8.2f} | {:>7.2f}x"
         ).format(
-            inst.upper(), meta["rows"], meta["cols"],
-            res_simplex["time_ms"], res_simplex["iterations"],
+            inst.upper(), rows, cols,
+            smplx_str, res_simplex["iterations"],
             res_cpu["time_ms"], res_cpu["iterations"],
             res_gpu["h2d_ms"], res_gpu["kernel_ms"], res_gpu["d2h_ms"], res_gpu["total_ms"],
             speedup_kernel
         )
         print(row)
 
+        ref_obj = meta["optimal"] if meta["optimal"] != 0.0 else res_gpu["objective"]
         record = {
             "instance": inst.upper(),
-            "rows": meta["rows"],
-            "cols": meta["cols"],
-            "reference_objective": meta["optimal"],
+            "rows": rows,
+            "cols": cols,
+            "nonzeros": nnz,
+            "reference_objective": ref_obj,
             "simplex_status": res_simplex["status"],
             "simplex_objective": res_simplex["objective"],
             "simplex_iterations": res_simplex["iterations"],

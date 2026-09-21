@@ -379,9 +379,15 @@ int main(int argc, char** argv) {
     double relative_gap = 0.0;
     std::size_t cuts_generated = 0;
     std::size_t heuristics_found = 0;
+    std::size_t model_rows = 0;
+    std::size_t model_cols = 0;
+    std::size_t model_nnz = 0;
 
     try {
         const auto model = markov_cero::io::parse_mps(input);
+        model_rows = model.matrix.row_count;
+        model_cols = model.matrix.column_count;
+        model_nnz = model.matrix.value.size();
 
         bool has_discrete = false;
         for (const auto type : model.variable_type) {
@@ -727,6 +733,9 @@ int main(int argc, char** argv) {
          << "\","
          << "\"engine\":\"" << json_escape(resolved_engine) << "\","
          << "\"status\":\"" << markov_cero::lp::reference::to_string(result.status) << "\","
+         << "\"rows\":" << model_rows << ","
+         << "\"cols\":" << model_cols << ","
+         << "\"nonzeros\":" << model_nnz << ","
          << "\"verified\":" << (verified ? "true" : "false") << ","
          << "\"message\":\"" << json_escape(result.message) << "\","
          << "\"objective\":"
