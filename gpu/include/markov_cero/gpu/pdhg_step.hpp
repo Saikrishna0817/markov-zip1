@@ -58,7 +58,8 @@ PdhgState create_pdhg_state(const model::Model& model,
                             double primal_weight = 1.0);
 
 // Update device-resident step sizes tau and sigma from current eta and omega
-void pdhg_update_step_sizes(PdhgState& state, double eta, double omega);
+void pdhg_update_step_sizes(PdhgState& state, double eta, double omega,
+                            double* h2d_ms = nullptr);
 
 // Execute a single fused PDHG iteration (dispatches to CUDA if enabled, else CPU)
 void pdhg_step(PdhgState& state, std::size_t avg_count);
@@ -77,7 +78,8 @@ struct PdhgResiduals {
 // Evaluate primal/dual residuals and duality gap on candidate average (x_avg, y_avg)
 PdhgResiduals evaluate_residuals(const PdhgState& state,
                                  const model::Model& original_model,
-                                 const scale::RuizScalers* scalers = nullptr);
+                                 const scale::RuizScalers* scalers = nullptr,
+                                 double* d2h_ms = nullptr);
 
 // Reset base iterates x, y, and x_bar to current candidate ergodic averages
 void pdhg_restart(PdhgState& state);

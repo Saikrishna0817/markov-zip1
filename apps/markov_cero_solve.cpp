@@ -121,6 +121,7 @@ void usage(std::ostream& out) {
         << "  --max-presolve-passes N   Maximum presolve passes (default: 5)\n"
         << "  --ruiz-iterations N       Maximum Ruiz equilibration iterations (default: 10)\n"
         << "  --tolerance TOL          Relative KKT tolerance for PDLP (default: 1e-4)\n"
+        << "  --backend cpu|gpu        PDLP execution backend (default: cpu)\n"
         << "  --help, -h               Show this help\n";
 }
 
@@ -138,9 +139,14 @@ int main(int argc, char** argv) {
     std::size_t max_presolve_passes = 5;
     std::size_t ruiz_iterations = 10;
     double pdlp_tolerance = 1e-4;
+    std::string backend_name = "cpu";
     double pdlp_res_primal_infeas = 0.0;
     double pdlp_res_dual_infeas = 0.0;
     double pdlp_res_gap = 0.0;
+    double pdlp_h2d_ms = 0.0;
+    double pdlp_kernel_ms = 0.0;
+    double pdlp_d2h_ms = 0.0;
+    double pdlp_total_ms = 0.0;
     markov_cero::lp::reference::Options options;
     markov_cero::milp::Options milp_options;
     for (int i = 1; i < argc; ++i) {
@@ -299,6 +305,18 @@ int main(int argc, char** argv) {
             }
             continue;
         }
+        if (arg == "--backend") {
+            if (i + 1 >= argc) {
+                usage(std::cerr);
+                return 8;
+            }
+            backend_name = argv[++i];
+            if (backend_name != "cpu" && backend_name != "gpu") {
+                std::cerr << "invalid backend (must be cpu or gpu): " << backend_name << "\n";
+                return 8;
+            }
+            continue;
+        }
         if (arg == "--iteration-limit") {
             if (i + 1 >= argc) {
                 usage(std::cerr);
@@ -431,6 +449,9 @@ int main(int argc, char** argv) {
             }
         } else if (resolved_engine == "pdlp") {
             markov_cero::lp::first_order::PdlpOptions pdlp_opts;
+            pdlp_opts.backend = (backend_name == "gpu")
+                                    ? markov_cero::lp::first_order::Backend::gpu
+                                    : markov_cero::lp::first_order::Backend::cpu;
             pdlp_opts.max_iterations =
                 (options.iteration_limit != 10000 && options.iteration_limit > 0)
                     ? options.iteration_limit
@@ -441,6 +462,10 @@ int main(int argc, char** argv) {
             pdlp_res_primal_infeas = pdlp_res.primal_infeasibility;
             pdlp_res_dual_infeas = pdlp_res.dual_infeasibility;
             pdlp_res_gap = pdlp_res.duality_gap;
+            pdlp_h2d_ms = pdlp_res.h2d_ms;
+            pdlp_kernel_ms = pdlp_res.kernel_ms;
+            pdlp_d2h_ms = pdlp_res.d2h_ms;
+            pdlp_total_ms = pdlp_res.total_ms;
             if (pdlp_res.status == markov_cero::lp::first_order::PdlpStatus::optimal) {
                 result.status = markov_cero::lp::reference::SolveStatus::optimal;
                 result.primal = pdlp_res.primal;
@@ -739,6 +764,12 @@ int main(int argc, char** argv) {
          << "\"relative_primal_residual\":" << json_number(pdlp_res_primal_infeas) << ","
          << "\"relative_dual_residual\":" << json_number(pdlp_res_dual_infeas) << ","
          << "\"relative_duality_gap\":" << json_number(pdlp_res_gap) << ","
+         << "\"backend\":\"" << json_escape(backend_name) << "\","
+         << "\"h2d_ms\":" << json_number(pdlp_h2d_ms) << ","
+         << "\"kernel_ms\":" << json_number(pdlp_kernel_ms) << ","
+         << "\"d2h_ms\":" << json_number(pdlp_d2h_ms) << ","
+         << "\"total_ms\":"
+         << json_number(resolved_engine == "pdlp" ? pdlp_total_ms : elapsed_ms) << ","
          << "\"limitations\":\"CPU sovereign LP and MILP Branch-and-Cut engine; GPU and QP are not "
             "implemented.\"";
     if (!error.empty()) {
@@ -756,10 +787,21 @@ int main(int argc, char** argv) {
         output << payload;
     }
 
+    std::string timing_diag;
+    if (resolved_engine == "pdlp") {
+        if (backend_name == "gpu") {
+            timing_diag = " [gpu H2D=" + json_number(pdlp_h2d_ms) + "ms kernel=" +
+                          json_number(pdlp_kernel_ms) + "ms D2H=" + json_number(pdlp_d2h_ms) +
+                          "ms total=" + json_number(pdlp_total_ms) + "ms]";
+        } else {
+            timing_diag = " [cpu total=" + json_number(pdlp_total_ms) + "ms]";
+        }
+    }
+
     std::cerr << "markov-cero " << markov_cero::foundation::version() << " "
               << markov_cero::lp::reference::to_string(result.status)
               << (resolved_engine == "pdlp"
-                      ? (" [tol=" + json_number(pdlp_tolerance) + "]")
+                      ? (" [tol=" + json_number(pdlp_tolerance) + "]" + timing_diag)
                       : "")
               << (verified ? " VERIFIED\n" : " NOT VERIFIED\n");
     return exit_code(result.status);

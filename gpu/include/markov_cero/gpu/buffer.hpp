@@ -121,6 +121,12 @@ class DeviceBuffer final {
         return result;
     }
 
+    void copy_from(const DeviceBuffer& other) {
+        if (this == &other || other.size_ == 0) return;
+        if (size_ < other.size_) allocate(other.size_);
+        detail::copy_device_to_device(data_, other.data_, other.size_ * sizeof(T));
+    }
+
     [[nodiscard]] T* data() noexcept { return data_; }
     [[nodiscard]] const T* data() const noexcept { return data_; }
     [[nodiscard]] std::size_t size() const noexcept { return size_; }

@@ -9,6 +9,7 @@
 
 #include <algorithm>
 #include <cassert>
+#include <chrono>
 #include <cmath>
 #include <limits>
 #include <numeric>
@@ -170,16 +171,17 @@ UnscaledResiduals compute_unscaled_residuals(
 } // namespace
 
 PdlpResult solve_pdlp(const model::Model& model, const PdlpOptions& options) {
+    if (options.backend == Backend::gpu) {
+        return gpu::solve_pdlp_gpu(model, options);
+    }
+
+    const auto t_start = std::chrono::steady_clock::now();
     const std::size_t m = model.matrix.row_count;
     const std::size_t n = model.matrix.column_count;
 
     if (n == 0 || m == 0) {
         return PdlpResult{PdlpStatus::optimal, {}, {}, 0.0, 0.0, 0.0, 0.0,
                           options.primal_tolerance, 0, "trivial"};
-    }
-
-    if (options.backend == Backend::gpu) {
-        return gpu::solve_pdlp_gpu(model, options);
     }
 
     model::Model mdl = model;
@@ -334,6 +336,9 @@ PdlpResult solve_pdlp(const model::Model& model, const PdlpOptions& options) {
             if (primal_infeas <= options.primal_tolerance &&
                 dual_infeas <= options.dual_tolerance &&
                 gap_val <= options.gap_tolerance) {
+                const auto t_end = std::chrono::steady_clock::now();
+                const double elapsed =
+                    std::chrono::duration<double, std::milli>(t_end - t_start).count();
                 PdlpResult res;
                 res.status = PdlpStatus::optimal;
                 res.primal = std::move(cur_res.x);
@@ -345,6 +350,10 @@ PdlpResult solve_pdlp(const model::Model& model, const PdlpOptions& options) {
                 res.tolerance = options.primal_tolerance;
                 res.iterations = iter;
                 res.message = "PDLP converged";
+                res.h2d_ms = 0.0;
+                res.kernel_ms = elapsed;
+                res.d2h_ms = 0.0;
+                res.total_ms = elapsed;
                 return res;
             }
 
@@ -386,6 +395,9 @@ PdlpResult solve_pdlp(const model::Model& model, const PdlpOptions& options) {
     auto final_res = compute_unscaled_residuals(
         model, x_avg, y_avg, Ax_avg, At_y_avg, scalers, options.ruiz_scaling);
 
+    const auto t_end = std::chrono::steady_clock::now();
+    const double elapsed =
+        std::chrono::duration<double, std::milli>(t_end - t_start).count();
     PdlpResult res;
     res.status = PdlpStatus::iteration_limit;
     res.primal = std::move(final_res.x);
@@ -397,6 +409,10 @@ PdlpResult solve_pdlp(const model::Model& model, const PdlpOptions& options) {
     res.tolerance = options.primal_tolerance;
     res.iterations = iter;
     res.message = "iteration limit reached";
+    res.h2d_ms = 0.0;
+    res.kernel_ms = elapsed;
+    res.d2h_ms = 0.0;
+    res.total_ms = elapsed;
     return res;
 }
 

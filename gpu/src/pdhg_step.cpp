@@ -3,9 +3,14 @@
 #include "markov_cero/scale/ruiz_scaling.hpp"
 
 #include <algorithm>
+#include <chrono>
 #include <cmath>
 #include <stdexcept>
 #include <vector>
+
+#ifdef MARKOV_CERO_HAS_CUDA
+#include <cuda_runtime.h>
+#endif
 
 namespace markov_cero::gpu {
 
@@ -102,22 +107,23 @@ PdhgState create_pdhg_state(const model::Model& model,
     return state;
 }
 
-void pdhg_update_step_sizes(PdhgState& state, double eta, double omega) {
-    const std::size_t n = state.num_variables;
-    const std::size_t m = state.num_constraints;
+void pdhg_update_step_sizes(PdhgState& state, double eta, double omega,
+                            double* h2d_ms) {
+    const std::size_t n = state.num_variables, m = state.num_constraints;
     if (n == 0 || m == 0) return;
     state.eta = std::clamp(eta, 0.1, 0.99);
     state.omega = std::clamp(omega, 1e-6, 1e6);
 
     std::vector<double> h_tau(n), h_sigma(m);
-    for (std::size_t j = 0; j < n; ++j) {
-        h_tau[j] = (state.eta / state.omega) / state.col_norms[j];
-    }
-    for (std::size_t i = 0; i < m; ++i) {
-        h_sigma[i] = (state.eta * state.omega) / state.row_norms[i];
-    }
+    for (std::size_t j = 0; j < n; ++j) h_tau[j] = (state.eta / state.omega) / state.col_norms[j];
+    for (std::size_t i = 0; i < m; ++i) h_sigma[i] = (state.eta * state.omega) / state.row_norms[i];
+    const auto t0 = std::chrono::steady_clock::now();
     state.tau.upload(h_tau.data(), n);
     state.sigma.upload(h_sigma.data(), m);
+    if (h2d_ms) {
+        *h2d_ms += std::chrono::duration<double, std::milli>(
+            std::chrono::steady_clock::now() - t0).count();
+    }
 }
 
 namespace detail {
@@ -236,13 +242,19 @@ void pdhg_run_iterations_cpu(PdhgState& state, std::size_t num_iters, std::size_
 
 PdhgResiduals evaluate_residuals(const PdhgState& state,
                                  const model::Model& original_model,
-                                 const scale::RuizScalers* scalers) {
+                                 const scale::RuizScalers* scalers,
+                                 double* d2h_ms) {
     const std::size_t m = state.num_constraints, n = state.num_variables;
     if (m == 0 || n == 0) return PdhgResiduals{0.0, 0.0, 0.0, 0.0};
 
     std::vector<double> h_xavg(n), h_yavg(m);
+    const auto t0 = std::chrono::steady_clock::now();
     state.x_avg.download(h_xavg.data(), n);
     state.y_avg.download(h_yavg.data(), m);
+    if (d2h_ms) {
+        *d2h_ms += std::chrono::duration<double, std::milli>(
+            std::chrono::steady_clock::now() - t0).count();
+    }
 
     std::vector<double> x_orig(n), y_orig(m);
     for (std::size_t j = 0; j < n; ++j) {
@@ -337,22 +349,21 @@ PdhgResiduals evaluate_residuals(const PdhgState& state,
 void pdhg_restart(PdhgState& state) {
     const std::size_t n = state.num_variables, m = state.num_constraints;
     if (n == 0 || m == 0) return;
-    std::vector<double> h_x(n), h_y(m);
-    state.x_avg.download(h_x.data(), n);
-    state.y_avg.download(h_y.data(), m);
-    state.x.upload(h_x.data(), n);
-    state.x_bar.upload(h_x.data(), n);
-    state.y.upload(h_y.data(), m);
+    state.x.copy_from(state.x_avg);
+    state.x_bar.copy_from(state.x_avg);
+    state.y.copy_from(state.y_avg);
 }
 
 markov_cero::lp::first_order::PdlpResult solve_pdlp_gpu(
     const model::Model& model,
     const markov_cero::lp::first_order::PdlpOptions& options) {
     using namespace markov_cero::lp::first_order;
+    const auto t_total_start = std::chrono::steady_clock::now();
+    double h2d_ms = 0.0, kernel_ms = 0.0, d2h_ms = 0.0;
     const std::size_t m = model.matrix.row_count, n = model.matrix.column_count;
     if (m == 0 || n == 0) {
         return PdlpResult{PdlpStatus::optimal, {}, {}, 0.0, 0.0, 0.0, 0.0,
-                          options.primal_tolerance, 0, "trivial"};
+                          options.primal_tolerance, 0, "trivial", 0.0, 0.0, 0.0, 0.0};
     }
 
     model::Model scaled_model = model;
@@ -377,14 +388,20 @@ markov_cero::lp::first_order::PdlpResult solve_pdlp_gpu(
                        ? options.initial_primal_weight
                        : std::clamp(std::sqrt(c_norm_inf / b_norm_inf), 0.01, 100.0);
 
+    const auto t_h2d_0 = std::chrono::steady_clock::now();
     DeviceCsr A = DeviceCsr::from_csc(scaled_model.matrix);
     DeviceCsr At = DeviceCsr::transpose_from_csc(scaled_model.matrix);
     PdhgState state = create_pdhg_state(
         scaled_model, A, At, options.step_size_reduction, omega);
+#ifdef MARKOV_CERO_HAS_CUDA
+    cudaDeviceSynchronize();
+#endif
+    h2d_ms += std::chrono::duration<double, std::milli>(
+        std::chrono::steady_clock::now() - t_h2d_0).count();
 
     std::size_t iter = 0, avg_count = 0, iters_since_restart = 0;
     const scale::RuizScalers* p_scalers = options.ruiz_scaling ? &scalers : nullptr;
-    auto initial_resids = evaluate_residuals(state, model, p_scalers);
+    auto initial_resids = evaluate_residuals(state, model, p_scalers, &d2h_ms);
     double last_score = initial_resids.score;
     PdhgResiduals last_resids = initial_resids;
 
@@ -392,27 +409,41 @@ markov_cero::lp::first_order::PdlpResult solve_pdlp_gpu(
 
     auto make_result = [&](PdlpStatus st, const char* msg) {
         std::vector<double> h_x(n), h_y(m);
+        const auto t_d_0 = std::chrono::steady_clock::now();
         state.x_avg.download(h_x.data(), n);
         state.y_avg.download(h_y.data(), m);
+        d2h_ms += std::chrono::duration<double, std::milli>(
+            std::chrono::steady_clock::now() - t_d_0).count();
+
         if (options.ruiz_scaling) {
             scale::unscale_model_solution(scalers, h_x, h_y);
         }
         double final_obj = model.objective_offset;
         for (std::size_t j = 0; j < n; ++j) final_obj += model.objective[j] * h_x[j];
+
+        const double total_ms = std::chrono::duration<double, std::milli>(
+            std::chrono::steady_clock::now() - t_total_start).count();
         return PdlpResult{st, std::move(h_x), std::move(h_y), final_obj,
                           last_resids.primal_infeasibility,
                           last_resids.dual_infeasibility,
                           last_resids.duality_gap,
-                          options.primal_tolerance, iter, msg};
+                          options.primal_tolerance, iter, msg,
+                          h2d_ms, kernel_ms, d2h_ms, total_ms};
     };
 
     while (iter < options.max_iterations) {
         const std::size_t chunk = std::min(check_interval, options.max_iterations - iter);
+        const auto t_k_0 = std::chrono::steady_clock::now();
         for (std::size_t k = 0; k < chunk; ++k) pdhg_step(state, ++avg_count);
+#ifdef MARKOV_CERO_HAS_CUDA
+        cudaDeviceSynchronize();
+#endif
+        kernel_ms += std::chrono::duration<double, std::milli>(
+            std::chrono::steady_clock::now() - t_k_0).count();
         iter += chunk;
         iters_since_restart += chunk;
 
-        last_resids = evaluate_residuals(state, model, p_scalers);
+        last_resids = evaluate_residuals(state, model, p_scalers, &d2h_ms);
 
         if (last_resids.primal_infeasibility <= options.primal_tolerance &&
             last_resids.dual_infeasibility <= options.dual_tolerance &&
@@ -440,9 +471,15 @@ markov_cero::lp::first_order::PdlpResult solve_pdlp_gpu(
                 state.omega = std::clamp(
                     state.omega * std::pow(ratio, options.primal_weight_smoothing),
                     1e-6, 1e6);
-                pdhg_update_step_sizes(state, state.eta, state.omega);
+                pdhg_update_step_sizes(state, state.eta, state.omega, &h2d_ms);
             }
+            const auto t_rst_0 = std::chrono::steady_clock::now();
             pdhg_restart(state);
+#ifdef MARKOV_CERO_HAS_CUDA
+            cudaDeviceSynchronize();
+#endif
+            kernel_ms += std::chrono::duration<double, std::milli>(
+                std::chrono::steady_clock::now() - t_rst_0).count();
             avg_count = 0;
             iters_since_restart = 0;
             last_score = last_resids.score;

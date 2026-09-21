@@ -53,6 +53,10 @@ struct PdlpResult {
     double tolerance{1e-4};
     std::size_t iterations{0};
     std::string message;
+    double h2d_ms{0.0};
+    double kernel_ms{0.0};
+    double d2h_ms{0.0};
+    double total_ms{0.0};
 };
 
 // Solve an LP using matrix-free Primal-Dual Hybrid Gradient.
