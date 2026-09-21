@@ -7,6 +7,7 @@
 #include <algorithm>
 #include <cmath>
 #include <cstddef>
+#include <cstdlib>
 #include <fstream>
 #include <iomanip>
 #include <iostream>
@@ -310,10 +311,21 @@ void test_netlib_instance(const std::string& instance_name,
         mdl = io::parse_mps(file);
     } else {
         std::ifstream alt_file("../" + filepath);
-        if (!alt_file.is_open()) {
-            throw std::runtime_error("Cannot open Netlib file: " + filepath);
+        if (alt_file.is_open()) {
+            mdl = io::parse_mps(alt_file);
+        } else {
+            const char* src_dir = std::getenv("MARKOV_CERO_SOURCE_DIR");
+            if (src_dir) {
+                std::ifstream env_file(std::string(src_dir) + "/" + filepath);
+                if (env_file.is_open()) {
+                    mdl = io::parse_mps(env_file);
+                } else {
+                    throw std::runtime_error("Cannot open Netlib file: " + filepath);
+                }
+            } else {
+                throw std::runtime_error("Cannot open Netlib file: " + filepath);
+            }
         }
-        mdl = io::parse_mps(alt_file);
     }
 
     const std::size_t m = mdl.matrix.row_count;

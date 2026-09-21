@@ -216,8 +216,15 @@ set_tests_properties(
   cli_blend_optimal cli_refinery_feasible cli_refinery_infeasible
   cli_refinery_malformed cli_refinery_limited
   netlib_benchmarks gpu_benchmarks gpu_profiling
-  PROPERTIES TIMEOUT 60)
-set_tests_properties(miplib_benchmarks PROPERTIES TIMEOUT 180)
+  PROPERTIES
+    TIMEOUT 60
+    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+    ENVIRONMENT "MARKOV_CERO_SOURCE_DIR=${CMAKE_SOURCE_DIR}")
+set_tests_properties(miplib_benchmarks
+  PROPERTIES
+    TIMEOUT 180
+    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+    ENVIRONMENT "MARKOV_CERO_SOURCE_DIR=${CMAKE_SOURCE_DIR}")
 if(MARKOV_CERO_BUILD_FUZZER)
   if(NOT CMAKE_CXX_COMPILER_ID MATCHES "Clang")
     message(FATAL_ERROR "libFuzzer target requires Clang")

@@ -5,6 +5,7 @@
 #include "markov_cero/verify/primal_verifier.hpp"
 
 #include <cmath>
+#include <cstdlib>
 #include <fstream>
 #include <iomanip>
 #include <iostream>
@@ -28,6 +29,13 @@ markov_cero::model::Model load_mps(const std::string& filepath) {
     std::ifstream alt_file("../" + filepath);
     if (alt_file.is_open()) {
         return markov_cero::io::parse_mps(alt_file);
+    }
+    const char* src_dir = std::getenv("MARKOV_CERO_SOURCE_DIR");
+    if (src_dir) {
+        std::ifstream env_file(std::string(src_dir) + "/" + filepath);
+        if (env_file.is_open()) {
+            return markov_cero::io::parse_mps(env_file);
+        }
     }
     throw std::runtime_error("Cannot open MPS file: " + filepath);
 }

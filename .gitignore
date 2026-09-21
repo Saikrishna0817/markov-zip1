@@ -48,5 +48,5 @@ __pycache__/
 .idea/
 
 # Local data cache and runtime reports
-data/
+data/scale_study/
 reports/
