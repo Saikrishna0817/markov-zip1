@@ -2,7 +2,6 @@
 #include <algorithm>
 #include <cmath>
 #include <limits>
-#include <map>
 #include <stdexcept>
 namespace markov_cero::linalg {
 namespace {
@@ -92,13 +91,29 @@ SparseLu SparseLu::factorize(const SparseCsc& matrix, double singular_tolerance,
     out.row_order_.resize(matrix.rows);
     for (std::size_t i = 0; i < matrix.rows; ++i)
         out.row_order_[i] = i;
-    std::vector<std::map<std::size_t, double>> rows(matrix.rows);
+    using Entry = std::pair<std::size_t, double>;
+    std::vector<std::vector<Entry>> rows(matrix.rows);
     double maximum_original = 0;
-    for (std::size_t j = 0; j < matrix.columns; ++j)
+    for (std::size_t j = 0; j < matrix.columns; ++j) {
         for (std::size_t p = matrix.column_offsets[j]; p < matrix.column_offsets[j + 1]; ++p) {
-            rows[matrix.row_indices[p]][j] = matrix.values[p];
+            rows[matrix.row_indices[p]].push_back({j, matrix.values[p]});
             maximum_original = std::max(maximum_original, std::abs(matrix.values[p]));
         }
+    }
+    for (auto& r : rows) {
+        std::sort(r.begin(), r.end(),
+                  [](const Entry& a, const Entry& b) { return a.first < b.first; });
+    }
+    auto find_col = [](const std::vector<Entry>& r, std::size_t c) -> const Entry* {
+        auto it = std::lower_bound(
+            r.begin(), r.end(), c, [](const Entry& e, std::size_t col) { return e.first < col; });
+        return (it != r.end() && it->first == c) ? &(*it) : nullptr;
+    };
+    auto find_col_mut = [](std::vector<Entry>& r, std::size_t c) -> Entry* {
+        auto it = std::lower_bound(
+            r.begin(), r.end(), c, [](const Entry& e, std::size_t col) { return e.first < col; });
+        return (it != r.end() && it->first == c) ? &(*it) : nullptr;
+    };
     out.diagnostics_.minimum_absolute_pivot =
         matrix.rows ? std::numeric_limits<double>::infinity() : 0;
     double maximum_factor = maximum_original;
@@ -106,9 +121,9 @@ SparseLu SparseLu::factorize(const SparseCsc& matrix, double singular_tolerance,
         std::size_t pivot_row = k;
         double pivot_abs = 0;
         for (std::size_t i = k; i < matrix.rows; ++i) {
-            auto it = rows[i].find(k);
-            if (it != rows[i].end() && std::abs(it->second) > pivot_abs) {
-                pivot_abs = std::abs(it->second);
+            const auto* entry = find_col(rows[i], k);
+            if (entry && std::abs(entry->second) > pivot_abs) {
+                pivot_abs = std::abs(entry->second);
                 pivot_row = i;
             }
         }
@@ -118,28 +133,66 @@ SparseLu SparseLu::factorize(const SparseCsc& matrix, double singular_tolerance,
             std::swap(rows[pivot_row], rows[k]);
             std::swap(out.row_order_[pivot_row], out.row_order_[k]);
         }
-        const double pivot = rows[k].at(k);
+        const auto* pivot_entry = find_col(rows[k], k);
+        if (!pivot_entry)
+            throw std::runtime_error("singular sparse basis");
+        const double pivot = pivot_entry->second;
         out.diagnostics_.minimum_absolute_pivot =
             std::min(out.diagnostics_.minimum_absolute_pivot, std::abs(pivot));
         out.diagnostics_.maximum_absolute_pivot =
             std::max(out.diagnostics_.maximum_absolute_pivot, std::abs(pivot));
         for (std::size_t i = k + 1; i < matrix.rows; ++i) {
-            auto found = rows[i].find(k);
-            if (found == rows[i].end())
+            auto* found = find_col_mut(rows[i], k);
+            if (!found)
                 continue;
             const double multiplier = found->second / pivot;
             require_finite(multiplier, "non-finite sparse elimination multiplier");
             found->second = multiplier;
-            for (auto it = rows[k].upper_bound(k); it != rows[k].end(); ++it) {
-                double next = rows[i][it->first] - multiplier * it->second;
-                require_finite(next, "non-finite sparse elimination result");
-                if (next == 0)
-                    rows[i].erase(it->first);
-                else {
-                    rows[i][it->first] = next;
-                    maximum_factor = std::max(maximum_factor, std::abs(next));
+            std::vector<Entry> merged;
+            merged.reserve(rows[i].size() + rows[k].size());
+            auto it_i = rows[i].begin();
+            while (it_i != rows[i].end() && it_i->first <= k) {
+                merged.push_back(*it_i++);
+            }
+            auto it_k = rows[k].begin();
+            while (it_k != rows[k].end() && it_k->first <= k) {
+                ++it_k;
+            }
+            while (it_i != rows[i].end() && it_k != rows[k].end()) {
+                if (it_i->first < it_k->first) {
+                    merged.push_back(*it_i++);
+                } else if (it_k->first < it_i->first) {
+                    double next = -multiplier * it_k->second;
+                    require_finite(next, "non-finite sparse elimination result");
+                    if (next != 0) {
+                        merged.push_back({it_k->first, next});
+                        maximum_factor = std::max(maximum_factor, std::abs(next));
+                    }
+                    ++it_k;
+                } else {
+                    double next = it_i->second - multiplier * it_k->second;
+                    require_finite(next, "non-finite sparse elimination result");
+                    if (next != 0) {
+                        merged.push_back({it_i->first, next});
+                        maximum_factor = std::max(maximum_factor, std::abs(next));
+                    }
+                    ++it_i;
+                    ++it_k;
                 }
             }
+            while (it_i != rows[i].end()) {
+                merged.push_back(*it_i++);
+            }
+            while (it_k != rows[k].end()) {
+                double next = -multiplier * it_k->second;
+                require_finite(next, "non-finite sparse elimination result");
+                if (next != 0) {
+                    merged.push_back({it_k->first, next});
+                    maximum_factor = std::max(maximum_factor, std::abs(next));
+                }
+                ++it_k;
+            }
+            rows[i] = std::move(merged);
         }
         std::size_t factor_count = 0;
         for (const auto& row : rows) {

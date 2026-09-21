@@ -38,7 +38,7 @@ MIPLIB_BENCHMARKS = {
         "rows": 18,
         "cols": 18,
         "integers": 11,
-        "optimal": 1240500.0,
+        "optimal": 1201500.0,
         "description": "Harvey M. Wagner airline capacity assignment model",
         "url": "https://raw.githubusercontent.com/coin-or-tools/Data-miplib3/master/flugpl.gz",
     },

@@ -21,7 +21,7 @@ jobs:
       fail-fast: false
       matrix:
         compiler: [gcc, clang]
-        build_type: [Debug, Release, ASan-UBSan]
+        build_type: [Debug, Release, ASan-UBSan, TSan]
         include:
           - compiler: gcc
             cc: gcc
@@ -38,6 +38,9 @@ jobs:
           - build_type: ASan-UBSan
             cmake_build_type: RelWithDebInfo
             cmake_flags: "-DMARKOV_CERO_ENABLE_ASAN_UBSAN=ON"
+          - build_type: TSan
+            cmake_build_type: RelWithDebInfo
+            cmake_flags: "-DMARKOV_CERO_ENABLE_TSAN=ON"
 
     steps:
       - name: Checkout repository

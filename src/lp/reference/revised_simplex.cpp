@@ -1,6 +1,7 @@
 #include "markov_cero/lp/reference/revised_simplex.hpp"
 
 #include "markov_cero/linalg/dense_lu.hpp"
+#include "markov_cero/linalg/sparse_basis.hpp"
 #include "markov_cero/verify/reference_lp_verifier.hpp"
 
 #include <algorithm>
@@ -19,20 +20,17 @@ constexpr std::size_t maximum_telemetry = 10000;
 constexpr double maximum_tolerance = 1e-4;
 
 std::size_t checked_add(std::size_t a, std::size_t b) {
-    if (b > std::numeric_limits<std::size_t>::max() - a) {
+    if (b > std::numeric_limits<std::size_t>::max() - a)
         throw std::length_error("simplex dimension addition overflow");
-    }
     return a + b;
 }
 
 std::size_t checked_product(std::size_t a, std::size_t b) {
-    if (a != 0 && b > std::numeric_limits<std::size_t>::max() / a) {
+    if (a != 0 && b > std::numeric_limits<std::size_t>::max() / a)
         throw std::length_error("simplex dimension product overflow");
-    }
     const auto n = a * b;
-    if (n > maximum_expanded_elements) {
+    if (n > maximum_expanded_elements)
         throw std::length_error("simplex dense workspace limit exceeded");
-    }
     return n;
 }
 
@@ -50,9 +48,7 @@ struct Work {
 
 std::vector<double> column(const Work& w, std::size_t j) {
     std::vector<double> v(w.rows);
-    for (std::size_t i = 0; i < w.rows; ++i) {
-        v[i] = w.a[i * w.total_columns + j];
-    }
+    for (std::size_t i = 0; i < w.rows; ++i) v[i] = w.a[i * w.total_columns + j];
     return v;
 }
 
@@ -64,6 +60,29 @@ linalg::DenseMatrix basis_matrix(const Work& w) {
         }
     }
     return b;
+}
+
+linalg::SparseBasisOptions sparse_options(const Options& o) {
+    linalg::SparseBasisOptions so;
+    so.singular_tolerance = o.pivot_tolerance;
+    so.update_pivot_tolerance = o.pivot_tolerance;
+    so.maximum_dimension = maximum_rows;
+    so.maximum_nonzeros = maximum_expanded_elements;
+    so.maximum_factor_nonzeros = maximum_expanded_elements;
+    so.maximum_updates = 64;
+    so.eta_density_trigger = 0.5;
+    return so;
+}
+
+linalg::SparseBasisFactorization make_factor(const Work& w,
+                                             const linalg::SparseBasisOptions& opts) {
+    std::vector<std::vector<double>> cols;
+    cols.reserve(w.rows);
+    for (std::size_t j = 0; j < w.rows; ++j) {
+        cols.push_back(column(w, w.basis[j]));
+    }
+    return linalg::SparseBasisFactorization::factorize(
+        linalg::SparseCsc::from_columns(w.rows, cols), opts);
 }
 
 double dot(const std::vector<double>& a, const std::vector<double>& b) {
@@ -101,12 +120,8 @@ bool significant_negative_reduced_cost(const Work& w, std::size_t j,
 
 void snap_basic_solution(std::vector<double>& xb, double feasibility_tolerance) {
     for (double& v : xb) {
-        if (v < 0 && v >= -feasibility_tolerance) {
-            v = 0;
-        }
-        if (v < 0) {
-            throw std::runtime_error("primal basis lost feasibility");
-        }
+        if (v < 0 && v >= -feasibility_tolerance) v = 0;
+        if (v < 0) throw std::runtime_error("primal basis lost feasibility");
     }
 }
 
@@ -161,14 +176,15 @@ IterationOutcome iterate(Work& w, const std::vector<double>& cost, std::size_t e
                          const Options& o, int phase, std::size_t budget,
                          std::vector<IterationRecord>& log, bool& telemetry_truncated) {
     IterationOutcome out;
+    const auto s_opts = sparse_options(o);
+    auto factor = make_factor(w, s_opts);
     for (std::size_t step = 0; step <= budget; ++step) {
         if (step == budget) {
             out.status = SolveStatus::iteration_limit;
             out.iterations = step;
             return out;
         }
-        auto lu = linalg::DenseLu::factorize(basis_matrix(w), o.pivot_tolerance);
-        auto xb = lu.solve(w.b);
+        auto xb = factor.solve(w.b);
         snap_basic_solution(xb, o.feasibility_tolerance);
         std::vector<double> cb(w.rows);
         std::vector<bool> basic(w.total_columns);
@@ -176,9 +192,10 @@ IterationOutcome iterate(Work& w, const std::vector<double>& cost, std::size_t e
             cb[i] = cost[w.basis[i]];
             basic[w.basis[i]] = true;
         }
-        auto y = lu.solve_transpose(cb);
+        auto y = factor.solve_transpose(cb);
         double minimum_rc = 0;
-        const std::size_t entering = select_entering(w, cost, y, basic, enter_limit, o, minimum_rc);
+        const std::size_t entering =
+            select_entering(w, cost, y, basic, enter_limit, o, minimum_rc);
         if (entering == enter_limit) {
             out.status = SolveStatus::optimal;
             out.xb = std::move(xb);
@@ -186,7 +203,7 @@ IterationOutcome iterate(Work& w, const std::vector<double>& cost, std::size_t e
             out.iterations = step;
             return out;
         }
-        auto d = lu.solve(column(w, entering));
+        auto d = factor.solve(column(w, entering));
         double theta = 0;
         const std::size_t leaving_row = select_leaving(w, xb, d, o, theta);
         if (leaving_row == w.rows) {
@@ -216,6 +233,13 @@ IterationOutcome iterate(Work& w, const std::vector<double>& cost, std::size_t e
             telemetry_truncated = true;
         }
         w.basis[leaving_row] = entering;
+        try {
+            factor.replace_column(leaving_row, column(w, entering));
+            if (factor.needs_refactorization())
+                factor.refactorize();
+        } catch (const std::exception&) {
+            factor = make_factor(w, s_opts);
+        }
     }
     return out;
 }
@@ -341,9 +365,7 @@ Result certify(const transform::CanonicalModel& m, Result r, double tolerance) {
 
 std::vector<double> full_solution(const Work& w, const std::vector<double>& xb) {
     std::vector<double> x(w.total_columns);
-    for (std::size_t i = 0; i < w.rows; ++i) {
-        x[w.basis[i]] = xb[i];
-    }
+    for (std::size_t i = 0; i < w.rows; ++i) x[w.basis[i]] = xb[i];
     return x;
 }
 
@@ -460,22 +482,14 @@ Result solve(const transform::CanonicalModel& m, const Options& o) {
 
 const char* to_string(SolveStatus s) noexcept {
     switch (s) {
-    case SolveStatus::optimal:
-        return "Optimal";
-    case SolveStatus::infeasible:
-        return "Infeasible";
-    case SolveStatus::unbounded:
-        return "Unbounded";
-    case SolveStatus::iteration_limit:
-        return "IterationLimit";
-    case SolveStatus::invalid_model:
-        return "InvalidModel";
-    case SolveStatus::invalid_options:
-        return "InvalidOptions";
-    case SolveStatus::resource_limit:
-        return "ResourceLimit";
-    case SolveStatus::numerical_failure:
-        return "NumericalFailure";
+    case SolveStatus::optimal: return "Optimal";
+    case SolveStatus::infeasible: return "Infeasible";
+    case SolveStatus::unbounded: return "Unbounded";
+    case SolveStatus::iteration_limit: return "IterationLimit";
+    case SolveStatus::invalid_model: return "InvalidModel";
+    case SolveStatus::invalid_options: return "InvalidOptions";
+    case SolveStatus::resource_limit: return "ResourceLimit";
+    case SolveStatus::numerical_failure: return "NumericalFailure";
     }
     return "Unknown";
 }

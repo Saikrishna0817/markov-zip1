@@ -70,8 +70,8 @@ Phase 5 introduces optional GPU acceleration with zero disruption to the non-GPU
   as an external benchmark reference, never linked into the shipped solver.
 - **`D-GPU-04` (Adaptive Restarts)**: Restarts on normalized duality gap drop iteration count
   by orders of magnitude (Applegate et al. 2023).
-- **`D-GPU-05` (Stepsize & Weight)**: Malitsky–Pock adaptive stepsize with primal/dual weight
-  updates for robust convergence.
+- **`D-GPU-05` (Stepsize & Weight)**: Adaptive stepsize heuristic ($\eta = 0.95 / L_{\text{local}}$)
+  with Chambolle–Pock primal/dual weight updates for robust convergence.
 - **`D-GPU-06` (Preconditioning)**: Reuses CPU Ruiz equilibration (`src/scale/ruiz_scaling.cpp`)
   and Chambolle–Pock diagonal preconditioning.
 - **`D-GPU-07` (Precision)**: FP64 by default for defensible feasibility tolerances ($\le 10^{-6}$).
