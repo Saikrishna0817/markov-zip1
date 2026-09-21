@@ -39,6 +39,7 @@ ALLOWED_DYNAMIC_LIBS = {
     "linux-vdso.so", "libstdc++.so", "libm.so", "libgcc_s.so", "libc.so",
     "ld-linux-x86-64.so", "ld-linux.so", "libpthread.so", "libdl.so",
     "librt.so", "libresolv.so", "libcuda.so", "libcudart.so",
+    "libasan.so", "libubsan.so", "libtsan.so", "liblsan.so",
 }
 
 ALLOWED_FIND_PACKAGES = {"threads", "cuda", "cudatoolkit"}

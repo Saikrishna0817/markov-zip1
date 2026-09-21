@@ -183,7 +183,11 @@ add_test(NAME gpu_pdhg_adaptive COMMAND gpu_pdhg_adaptive_test)
 add_test(NAME gpu_pdhg_kkt COMMAND gpu_pdhg_kkt_test)
 add_test(NAME gpu_pdhg_timing COMMAND gpu_pdhg_timing_test)
 add_test(NAME json_records COMMAND python3 -c "import json, glob; [json.load(open(f)) for f in glob.glob('**/*.json', recursive=True) if not f.startswith('_')]")
-add_test(NAME sovereignty_guard COMMAND ${CMAKE_COMMAND} -E env python3 ${CMAKE_SOURCE_DIR}/scripts/check-sovereignty.py ${CMAKE_SOURCE_DIR})
+add_test(NAME sovereignty_guard
+  COMMAND ${CMAKE_COMMAND} -E env python3
+    ${CMAKE_SOURCE_DIR}/scripts/check-sovereignty.py
+    ${CMAKE_SOURCE_DIR}
+    --binary $<TARGET_FILE:markov-cero-solve>)
 add_test(NAME cli_blend_optimal COMMAND markov-cero-solve ${CMAKE_SOURCE_DIR}/examples/blend.mps)
 add_test(NAME cli_refinery_feasible COMMAND markov-cero-solve ${CMAKE_SOURCE_DIR}/examples/refinery/refinery-feasible.mps)
 add_test(NAME cli_refinery_infeasible COMMAND markov-cero-solve ${CMAKE_SOURCE_DIR}/examples/refinery/refinery-infeasible.mps)
