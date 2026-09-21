@@ -194,17 +194,28 @@ add_test(NAME cli_refinery_limited COMMAND markov-cero-solve ${CMAKE_SOURCE_DIR}
 set_tests_properties(cli_refinery_limited PROPERTIES WILL_FAIL TRUE)
 add_test(NAME netlib_benchmarks COMMAND ${CMAKE_COMMAND} -E env python3 ${CMAKE_SOURCE_DIR}/scripts/run_netlib.py --solver $<TARGET_FILE:markov-cero-solve> --instances afiro adlittle sc50a sc50b sc105 share2b recipe)
 add_test(NAME miplib_benchmarks COMMAND ${CMAKE_COMMAND} -E env python3 ${CMAKE_SOURCE_DIR}/scripts/run_miplib.py --solver $<TARGET_FILE:markov-cero-solve> --instances stein9 stein15 flugpl)
-add_test(NAME gpu_benchmarks COMMAND ${CMAKE_COMMAND} -E env python3 ${CMAKE_SOURCE_DIR}/scripts/run_gpu.py --solver $<TARGET_FILE:markov-cero-solve> --instances afiro blend sc50a sc50b --output ${CMAKE_BINARY_DIR}/reports/gpu_benchmark.csv)
+add_test(NAME gpu_benchmarks
+  COMMAND ${CMAKE_COMMAND} -E env python3 ${CMAKE_SOURCE_DIR}/scripts/run_gpu.py
+    --solver $<TARGET_FILE:markov-cero-solve>
+    --instances afiro blend sc50a sc50b
+    --output ${CMAKE_BINARY_DIR}/reports/gpu_benchmark.csv)
+add_test(NAME gpu_profiling
+  COMMAND ${CMAKE_COMMAND} -E env python3 ${CMAKE_SOURCE_DIR}/scripts/profile_gpu.py
+    --solver $<TARGET_FILE:markov-cero-solve>
+    --model ${CMAKE_SOURCE_DIR}/examples/blend.mps
+    --output-json ${CMAKE_BINARY_DIR}/reports/profile_summary.json
+    --output-md ${CMAKE_BINARY_DIR}/reports/profile_analysis.md)
 set_tests_properties(
   build_info model_verifier mps_parser mps_fuzz_smoke model_properties
   dense_lu primal_simplex primal_simplex_properties dual_simplex
   warm_start_properties sparse_basis sparse_update_properties audit_regressions
   sparse_canonicalize presolve ruiz_scaling milp milp_heuristics milp_cuts
   strong_branching pdlp parallel_tree_search gpu_buffer equivalence gpu_reduction
-  gpu_pdhg_step gpu_pdhg_restart gpu_pdhg_adaptive gpu_pdhg_kkt gpu_pdhg_timing json_records sovereignty_guard
+  gpu_pdhg_step gpu_pdhg_restart gpu_pdhg_adaptive gpu_pdhg_kkt gpu_pdhg_timing
+  json_records sovereignty_guard
   cli_blend_optimal cli_refinery_feasible cli_refinery_infeasible
   cli_refinery_malformed cli_refinery_limited
-  netlib_benchmarks gpu_benchmarks
+  netlib_benchmarks gpu_benchmarks gpu_profiling
   PROPERTIES TIMEOUT 60)
 set_tests_properties(miplib_benchmarks PROPERTIES TIMEOUT 180)
 if(MARKOV_CERO_BUILD_FUZZER)

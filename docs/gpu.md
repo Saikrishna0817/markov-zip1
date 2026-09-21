@@ -159,3 +159,32 @@ Example (`SCALE_10000`):
      `SCALE_10000`), achieving up to **29,000x+ speedup** over CPU simplex.
    - All solutions pass the sovereign zero-trust independent verifier (`verify_primal`).
 
+---
+
+## 6. GPU Profiling, Occupancy & Roofline Analysis (T-5.14)
+
+Hardware profiling evidence is captured in `evidence/benchmarks/nsight_profile_analysis.md`
+and generated via `scripts/profile_gpu.py` (which hooks into `nsys profile` when available).
+
+### Proof of Device-Resident Loop (`D-GPU-02`)
+- **Initial Upload (`h2d_ms`)**: Uploads CSR matrix $A$, CSR matrix $A^T$, objective, bounds,
+  and step sizes once. Total transfer volume on `SCALE_1000`: 156.59 KB.
+- **In-Loop Transfers**: **0** (Strict zero H2D or D2H memory transfers inside iteration loop).
+  Iterates $x, y, \bar{x}, \bar{y}$ stay resident in GPU device memory across all iterations.
+- **Final Download (`d2h_ms`)**: Primal vector $x$ and dual vector $y$ downloaded upon
+  convergence (11.76 KB on `SCALE_1000`, taking under 0.001 ms).
+
+### Kernel Execution Breakdown
+On representative benchmark `SCALE_1000` (525 rows, 980 cols, 2,884 nonzeros, 160 iterations):
+- **SpMV Operations ($A$ and $A^T$)**: **69.6%** of compute time.
+  Warp-per-row CSR SpMV streaming nonzeros across CUDA cores with warp-level shuffle reductions.
+- **Primal & Dual Projections**: **30.4%** of compute time.
+  Coalesced elementwise axpy and box bound projections using grid-stride loops.
+
+### Occupancy & Roofline Characteristics
+- **Kernel Occupancy**: 100% theoretical warp occupancy (256 threads/block, 24 regs/thread).
+- **Shared Memory**: 0 bytes per block, eliminating bank conflicts and SM occupancy limits.
+- **Arithmetic Intensity**: ~0.088 FLOP/byte, placing PDLP squarely in the memory-bandwidth-bound
+  regime where GPU streaming memory architectures deliver maximum acceleration over CPU caches.
+
+
