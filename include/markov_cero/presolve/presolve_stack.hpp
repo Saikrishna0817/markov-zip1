@@ -7,27 +7,27 @@
 namespace markov_cero::presolve {
 
 struct EmptyRowRecord {
-    std::size_t original_row_index;
+    std::size_t original_row_index{0};
     double rhs_value{0.0};
 };
 
 struct EmptyColumnRecord {
-    std::size_t original_col_index;
+    std::size_t original_col_index{0};
     double objective_coeff{0.0};
     double fixed_value{0.0};
 };
 
 struct FixedVariableRecord {
-    std::size_t original_col_index;
+    std::size_t original_col_index{0};
     double fixed_value{0.0};
     double objective_coeff{0.0};
-    std::vector<std::size_t> row_indices;
-    std::vector<double> coefficients;
+    std::vector<std::size_t> row_indices{};
+    std::vector<double> coefficients{};
 };
 
 struct RowSingletonRecord {
-    std::size_t original_row_index;
-    std::size_t variable_index;
+    std::size_t original_row_index{0};
+    std::size_t variable_index{0};
     double coefficient{0.0};
     double rhs_value{0.0};
 };

@@ -189,4 +189,11 @@ On representative benchmark `SCALE_1000` (525 rows, 980 cols, 2,884 nonzeros, 16
 - **Arithmetic Intensity**: ~0.088 FLOP/byte, placing PDLP squarely in the memory-bandwidth-bound
   regime where GPU streaming memory architectures deliver maximum acceleration over CPU caches.
 
+---
 
+## 7. Continuous Integration & Local Verification Policy
+
+In continuous integration (`.github/workflows/ci.yml`), tests execute across standard CPU runners
+in graceful CPU fallback mode with full CPU-side unit and integration testing. Hardware GPU
+acceleration is verified on local workstations equipped with NVIDIA CUDA GPUs (testing bitwise
+equivalence, device residency, and four-part timing).
