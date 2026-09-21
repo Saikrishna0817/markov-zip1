@@ -779,8 +779,7 @@ int main(int argc, char** argv) {
          << "\"d2h_ms\":" << json_number(pdlp_d2h_ms) << ","
          << "\"total_ms\":"
          << json_number(resolved_engine == "pdlp" ? pdlp_total_ms : elapsed_ms) << ","
-         << "\"limitations\":\"CPU sovereign LP and MILP Branch-and-Cut engine; GPU and QP are not "
-            "implemented.\"";
+         << "\"limitations\":\"Sovereign LP/MILP (CPU/GPU) engine; QP is scheduled for Phase 6.\"";
     if (!error.empty()) {
         json << ",\"error\":\"" << json_escape(error) << "\"";
     }

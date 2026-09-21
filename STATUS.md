@@ -27,6 +27,7 @@ Single source of truth for solver status, capabilities, CLI options, and prototy
 | Original primal verifier | Implemented | `src/verify/primal_verifier.cpp` |
 | Solve CLI & JSON output | Implemented | `apps/markov_cero_solve.cpp` |
 | Refinery qualification demo | Implemented | `examples/refinery/`, `run-qualification-demo.sh` |
+| GPU PDLP acceleration | Implemented | `gpu/`, CUDA SpMV, vector ops, reductions, T-5.01–T-5.16 |
 
 ---
 
@@ -34,15 +35,15 @@ Single source of truth for solver status, capabilities, CLI options, and prototy
 
 JSON telemetry emitted by `markov-cero-solve` reports:
 ```json
-"limitations":"CPU sovereign LP and MILP Branch-and-Cut engine; GPU and QP are not implemented."
+"limitations":"Sovereign LP/MILP (CPU/GPU) engine; QP is scheduled for Phase 6."
 ```
 
 The following capabilities are **not implemented** in the current release:
 
 1. **GPU Acceleration**:
-   - **Status**: **Not implemented** (Zero CUDA files in solver core).
-   - **Roadmap**: Scheduled for [Phase 5 (GPU Acceleration)](docs/gpu.md).
-   - **Strategy**: Offload matrix-free PDHG (SpMV, vector axpy, reductions) to CUDA.
+   - **Status**: **Implemented** (Phase 5 complete; see [docs/gpu.md](docs/gpu.md)).
+   - **Capabilities**: Device-resident matrix-free PDLP, custom CSR SpMV, adaptive restarts,
+     four-part timing, up to 29,320x speedup demonstrated on scale benchmark.
 
 2. **Convex Quadratic Programming (QP)**:
    - **Status**: **Not implemented**.
@@ -96,7 +97,8 @@ options:
   --output result.json     Write output JSON to file
   --engine primal|dual|pdlp|milp|parallel|auto Select solver engine (default: auto)
   --threads N              Worker threads for parallel tree search (default: 4)
-  --branching most_fractional|pseudo_cost|strong_branching|reliability Branching variable selection rule (default: pseudo_cost)
+  --branching RULE         Branching rule: most_fractional|pseudo_cost|
+                           strong_branching|reliability (default: pseudo_cost)
   --iteration-limit N      Maximum simplex iterations
   --max-nodes N            Maximum branch-and-cut search nodes (default: 50000)
   --time-limit SEC         Maximum search time limit in seconds (default: 60.0)
@@ -108,6 +110,8 @@ options:
   --scale, --no-scale       Enable or disable Ruiz matrix scaling (default: enabled)
   --max-presolve-passes N   Maximum presolve passes (default: 5)
   --ruiz-iterations N       Maximum Ruiz equilibration iterations (default: 10)
+  --tolerance TOL          Relative KKT tolerance for PDLP (default: 1e-4)
+  --backend cpu|gpu        PDLP execution backend (default: cpu)
   --help, -h               Show this help
 ```
 
