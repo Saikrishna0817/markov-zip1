@@ -15,7 +15,7 @@
 - **Solver Core**: Sovereign C++20 core with optional CUDA (`MARKOV_CERO_ENABLE_CUDA`).
 - **External Dependencies**: Strict `{C++20 stdlib, Threads, CUDA}`. Zero third-party links.
 - **Telemetry Disclosure**: All JSON outputs emit:
-  `"limitations":"Sovereign LP/MILP (CPU/GPU) engine; QP is scheduled for Phase 6."`
+  `"limitations":"Sovereign LP/MILP/QP/MIQP (CPU/GPU) engine."`
 - **Execution CLI**: Selectable via `--engine pdlp --backend gpu` with CPU fallback.
 
 ---

@@ -19,7 +19,7 @@ cmake --build build -j
 # 4. Solve the SIH26119 refinery qualification model
 ./build/markov-cero-solve examples/refinery/refinery-feasible.mps
 
-# 5. Verify the entire test suite (31/31 CTest targets)
+# 5. Verify the entire test suite (43/43 CTest targets)
 ctest --test-dir build --output-on-failure
 ```
 
@@ -48,7 +48,7 @@ When Command 4 runs, `markov-cero-solve` outputs JSON telemetry to stdout and a 
   "lp_iterations": 8,
   "best_bound": 2600.0,
   "relative_gap": 0.0,
-  "limitations": "Sovereign LP/MILP (CPU/GPU) engine; QP is scheduled for Phase 6."
+  "limitations": "Sovereign LP/MILP/QP/MIQP (CPU/GPU) engine."
 }
 ```
 
@@ -90,6 +90,9 @@ the independent canonical witness certificate, and asserts original-model primal
 
 # Solve using GPU-accelerated first-order PDLP (CUDA)
 ./build/markov-cero-solve data/netlib/afiro.mps --engine pdlp --backend gpu
+
+# Solve a convex Quadratic Program (QP) using operator-splitting ADMM
+./build/markov-cero-solve examples/qp_portfolio.mps --engine qp
 
 # Inspect model dimensions, matrix density, and bounds
 ./build/markov-cero-mps-inspect examples/refinery/refinery-feasible.mps

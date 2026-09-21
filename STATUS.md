@@ -28,6 +28,12 @@ Single source of truth for solver status, capabilities, CLI options, and prototy
 | Solve CLI & JSON output | Implemented | `apps/markov_cero_solve.cpp` |
 | Refinery qualification demo | Implemented | `examples/refinery/`, `run-qualification-demo.sh` |
 | GPU PDLP acceleration | Implemented | `gpu/`, CUDA SpMV, vector ops, reductions, T-5.01–T-5.16 |
+| Convex QP (OSQP ADMM) | Implemented | `src/qp/admm_solver.cpp`, `src/qp/kkt.cpp`, `qp_test.cpp` |
+| Sparse LDLᵀ KKT Factorization | Implemented | `src/qp/kkt.cpp`, Davis (2005) Algorithm 849 |
+| Convexity Verification | Implemented | `src/qp/model.cpp`, LDLᵀ diagonal pivot check |
+| Independent QP Verifier | Implemented | `src/qp/verifier.cpp`, KKT residuals & gap |
+| MIQP Branch-and-Cut | Implemented | `src/milp/node_lp.cpp`, `src/milp/heuristics.cpp` |
+| MPS QUADOBJ & QMATRIX | Implemented | `src/io/mps.cpp`, `tests/mps_parser_test.cpp` |
 
 ---
 
@@ -35,7 +41,7 @@ Single source of truth for solver status, capabilities, CLI options, and prototy
 
 JSON telemetry emitted by `markov-cero-solve` reports:
 ```json
-"limitations":"Sovereign LP/MILP (CPU/GPU) engine; QP is scheduled for Phase 6."
+"limitations":"Sovereign LP/MILP/QP/MIQP (CPU/GPU) engine."
 ```
 
 ### Problem Statement Capability Status (LP / MILP / QP / GPU)
@@ -44,39 +50,42 @@ JSON telemetry emitted by `markov-cero-solve` reports:
 - **MILP Branch-and-Cut**: **Implemented** (Phase 3–4).
 - **GPU Acceleration**: **Implemented** (Phase 5; see [docs/gpu.md](docs/gpu.md)).
   Device-resident PDLP, custom CSR SpMV, adaptive restarts, four-part timing.
+- **Convex QP & MIQP**: **Implemented** (Phase 6).
+  OSQP ADMM operator splitting, quasi-definite KKT factorization, independent KKT verification.
 
 ### Deferred Capabilities
 
-1. **Convex Quadratic Programming (QP)**:
-   - **Status**: **Not implemented**.
-   - **Roadmap**: Scheduled for [Phase 6 (Convex QP)](#phase-6-convex-qp-roadmap).
-   - **Strategy**: ADMM operator-splitting (OSQP-style) with sparse KKT factorizations.
-
-2. **Machine Learning-Assisted Branching**:
+1. **Machine Learning-Assisted Branching**:
    - **Status**: **Not implemented**.
    - **Roadmap**: Scheduled for Phase 7.
    - **Strategy**: Offline-trained gradient-boosted tree ranker on strong branching scores.
 
-3. **Dual Steepest-Edge Pricing Recurrence**:
+2. **Dual Steepest-Edge Pricing Recurrence**:
    - **Status**: Recomputes full tableau norm in $O(m^2)$ work per pivot.
    - **Roadmap**: Scheduled for Phase 8 ($O(m)$ Forrest–Goldfarb recurrence).
 
 ---
 
-## 3. Roadmaps for Deferred Capabilities
+## 3. Roadmaps for Completed and Deferred Capabilities
 
-### Phase 5: GPU Acceleration Roadmap
+### Phase 5: GPU Acceleration (Completed)
 - Detailed roadmap and design: [docs/gpu.md](docs/gpu.md).
 - Native C++20 matrix-free PDLP engine (`src/lp/first_order/pdlp.cpp`) serves as the CPU on-ramp.
 - Target: CUDA kernel SpMV (`A * x`, `A^T * y`), vector axpy, and dot-product reductions.
 - Primal revised simplex remains CPU-bound due to serial sparse basis updates.
 
-### Phase 6: Convex QP Roadmap
-- Target: Convex quadratic programs ($\min \frac{1}{2} x^T Q x + c^T x$ with $l \le A x \le u$).
-- Parser: Add strict `QUADOBJ` / `QMATRIX` support to the MPS parser (`src/io/mps.cpp`).
-- Algorithm: ADMM operator-splitting with quasi-definite KKT linear system solves.
-- Verification: Independent KKT certificate verifier checking primal/dual residuals and
-  complementarity conditions.
+### Phase 6: Convex QP & MIQP (Completed)
+- Target: Convex quadratic programs ($\min \frac{1}{2} x^T P x + q^T x$ with $l \le A x \le u$).
+- Parser: Support for `QUADOBJ` and `QMATRIX` in MPS format (`src/io/mps.cpp`).
+- Linear Algebra: Timothy Davis sparse LDLᵀ decomposition for symmetric quasi-definite KKT.
+- Algorithm: ADMM operator splitting with over-relaxation and adaptive penalty parameter updates.
+- Verification: Independent KKT certificate verifier checking primal/dual residuals.
+- MIQP: Continuous QP relaxations at branch-and-cut tree nodes with quadratic energy heuristic.
+
+### Phase 7: Machine Learning-Assisted Branching (Roadmap)
+- Target: Fast variable selection approximating strong branching scores without LP resolves.
+- Features: Variable fractionality distance, row density, objective coefficients, pseudo-costs.
+- Architecture: Zero-dependency embedded ranker filtering top-$k$ candidates for strong branching.
 
 ---
 
@@ -97,7 +106,7 @@ The CLI interface matches `markov-cero-solve --help` exactly:
 usage: markov-cero-solve MODEL.mps [options]
 options:
   --output result.json     Write output JSON to file
-  --engine primal|dual|pdlp|milp|parallel|auto Select solver engine (default: auto)
+  --engine primal|dual|pdlp|milp|parallel|qp|miqp|auto Select solver engine (default: auto)
   --threads N              Worker threads for parallel tree search (default: 4)
   --branching RULE         Branching rule: most_fractional|pseudo_cost|
                            strong_branching|reliability (default: pseudo_cost)

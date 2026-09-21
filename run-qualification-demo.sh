@@ -39,6 +39,6 @@ echo "$OUT"
 cat "$OUT"
 echo
 echo "=== Limitations ==="
-echo "Sovereign LP/MILP (CPU/GPU) engine; QP is scheduled for Phase 6."
+echo "Sovereign LP/MILP/QP/MIQP (CPU/GPU) engine."
 echo "Exit code $status (0 = verified Optimal)."
 exit "$status"

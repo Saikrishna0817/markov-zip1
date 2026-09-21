@@ -18,9 +18,15 @@ This software contains clean-room C++20 implementations of:
   * Mixed-Integer Rounding (MIR) cuts with cosine-similarity filtering
   * Strong branching lookahead evaluation, domain reduction, and pseudo-costs
   * Primal heuristics (simple rounding and feasibility pump)
+- Convex Quadratic Programming (QP) & Mixed-Integer QP (MIQP):
+  * OSQP-style operator-splitting ADMM over symmetric quasi-definite KKT system
+  * Timothy Davis sparse LDLᵀ factorization with exact symbolic fill-in
+  * Robust convexity validation via LDLᵀ diagonal pivot inspection
+  * Independent zero-trust KKT certificate verifier (residuals & complementarity)
+  * MPS parser support for QUADOBJ and QMATRIX quadratic sections
 - Reversible LP presolve reductions, postsolve reconstruction, and Ruiz scaling
 - Zero-trust dual-gated verification (canonical and original model space)
 
 Explicit Prototype Limitations:
-- Convex Quadratic Programming (QP) is not implemented in this version (planned for Phase 6).
 - Machine learning-assisted branching is not implemented in this version (planned for Phase 7).
+- Dual steepest-edge recurrence is not implemented (planned for Phase 8).

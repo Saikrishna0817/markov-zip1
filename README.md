@@ -7,9 +7,9 @@
 
 Clean-room C++20 solver core for SIH 2026 problem SIH26119 (MRPL indigenous LP/MILP/QP).
 
-Current release: **v0.5.2** (Phase 5 GPU-Accelerated Multi-Engine Release). Continuous LP,
-First-Order PDLP (CPU & CUDA GPU), and Mixed-Integer Linear Programming (MILP) Branch-and-Cut
-are fully implemented and independently verified. Convex QP is scheduled for Phase 6.
+Current release: **v0.5.2** (Phase 6 Multi-Engine LP/MILP/QP/MIQP Release). Continuous LP,
+First-Order PDLP (CPU & CUDA GPU), Mixed-Integer Linear Programming (MILP) Branch-and-Cut,
+and Convex Quadratic Programming (QP/MIQP) are fully implemented and independently verified.
 
 ## Scope & Capabilities
 
@@ -31,10 +31,16 @@ are fully implemented and independently verified. Convex QP is scheduled for Pha
   - Cutting Planes: Gomory Mixed-Integer (GMI) cuts and Mixed-Integer Rounding (MIR) cuts.
   - Variable Selection: Strong Branching domain reduction and Reliability Pseudo-Costs.
   - Dual-tier Primal Heuristics: Simple Rounding and Feasibility Pump with cycle perturbation.
+- **Convex QP & MIQP Engines**:
+  - OSQP operator-splitting ADMM over symmetric quasi-definite KKT (`--engine qp`).
+  - Timothy Davis sparse LDLᵀ factorization with exact symbolic fill-in.
+  - Positive semi-definiteness detection via LDLᵀ diagonal pivot validation.
+  - MIQP branch-and-cut optimization with quadratic objective heuristics (`--engine miqp`).
+  - Independent zero-trust KKT certificate verifier (residuals, dual stationarity, gap).
 - **Zero-Trust Independent Verification**: Dual-gated verification in canonical and original space.
 - **Applications**: `markov-cero-info`, `markov-cero-mps-inspect`, and `markov-cero-solve`.
 
-Planned for future milestones: convex Quadratic Programming (QP) and ML-assisted branching.
+Planned for future milestones: ML-assisted branching (Phase 7) and dual steepest-edge (Phase 8).
 
 ## Solve a model
 
@@ -42,6 +48,7 @@ Planned for future milestones: convex Quadratic Programming (QP) and ML-assisted
 cmake -S . -B build -DCMAKE_BUILD_TYPE=RelWithDebInfo
 cmake --build build -j
 ./build/markov-cero-solve examples/blend.mps
+./build/markov-cero-solve examples/qp_portfolio.mps --engine qp
 ./build/markov-cero-solve examples/refinery/refinery-feasible.mps --output /tmp/result.json
 ```
 

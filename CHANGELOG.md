@@ -2,6 +2,18 @@
 
 ## 0.5.2 — 2026-09-21
 
+### Phase 6: Convex QP & MIQP (commit 255bf62)
+- Implemented QuadraticModel canonical form with symmetric sparse CSC matrix storage.
+- Implemented positive semi-definiteness check via dense and sparse LDLᵀ inertia inspection.
+- Implemented Timothy A. Davis sparse LDLᵀ factorization (Algorithm 849, ACM TOMS 2005).
+- Implemented OSQP-style operator splitting ADMM solver with over-relaxation and adaptive rho.
+- Implemented analytical primal and dual infeasibility ray certificates (Banjac et al. 2019).
+- Implemented independent zero-trust KKT certificate verifier (residuals and complementarity).
+- Extended free-format MPS parser with QUADOBJ and QMATRIX quadratic objective sections.
+- Integrated continuous QP relaxations and quadratic energy heuristics into branch-and-cut MIQP.
+- Added CLI options: --engine qp and --engine miqp with automated quadratic model dispatch.
+- Expanded automated test suite to 43 CTest targets with 100% pass rate.
+
 ### Phase 5: GPU Acceleration & Scale Crossover (commits 4ca75b2..3c5f356)
 - Implemented sovereign CUDA first-order PDLP engine with device-resident iteration.
 - Implemented DeviceBuffer RAII container and DeviceCsr sparse matrix formats.

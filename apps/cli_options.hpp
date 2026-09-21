@@ -35,7 +35,7 @@ struct CliOptions {
         out << "usage: markov-cero-solve MODEL.mps [options]\n"
             << "options:\n"
             << "  --output result.json     Write output JSON to file\n"
-            << "  --engine primal|dual|pdlp|milp|parallel|auto "
+            << "  --engine primal|dual|pdlp|milp|parallel|qp|miqp|auto "
             << "Select solver engine (default: auto)\n"
             << "  --threads N              Worker threads for parallel tree search (default: 4)\n"
             << "  --branching most_fractional|pseudo_cost|strong_branching|reliability Branching "
