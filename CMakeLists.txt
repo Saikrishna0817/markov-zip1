@@ -213,12 +213,12 @@ set_tests_properties(cli_refinery_limited PROPERTIES WILL_FAIL TRUE)
 add_test(NAME netlib_benchmarks COMMAND ${CMAKE_COMMAND} -E env python3 ${CMAKE_SOURCE_DIR}/scripts/run_netlib.py --solver $<TARGET_FILE:markov-cero-solve> --instances afiro adlittle sc50a sc50b sc105 share2b recipe)
 add_test(NAME miplib_benchmarks COMMAND ${CMAKE_COMMAND} -E env python3 ${CMAKE_SOURCE_DIR}/scripts/run_miplib.py --solver $<TARGET_FILE:markov-cero-solve> --instances stein9 stein15 flugpl)
 add_test(NAME gpu_benchmarks
-  COMMAND ${CMAKE_COMMAND} -E env python3 ${CMAKE_SOURCE_DIR}/scripts/run_gpu.py
+  COMMAND ${CMAKE_COMMAND} -E env python3 ${CMAKE_SOURCE_DIR}/benchmarks/runners/run_gpu.py
     --solver $<TARGET_FILE:markov-cero-solve>
     --instances afiro blend sc50a sc50b
     --output ${CMAKE_BINARY_DIR}/reports/gpu_benchmark.csv)
 add_test(NAME gpu_profiling
-  COMMAND ${CMAKE_COMMAND} -E env python3 ${CMAKE_SOURCE_DIR}/scripts/profile_gpu.py
+  COMMAND ${CMAKE_COMMAND} -E env python3 ${CMAKE_SOURCE_DIR}/benchmarks/runners/profile_gpu.py
     --solver $<TARGET_FILE:markov-cero-solve>
     --model ${CMAKE_SOURCE_DIR}/examples/blend.mps
     --output-json ${CMAKE_BINARY_DIR}/reports/profile_summary.json
