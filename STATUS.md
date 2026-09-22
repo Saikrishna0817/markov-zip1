@@ -41,13 +41,17 @@ No performance number or "passed" claim appears here unless produced by a comman
 | Sparse LDLᵀ KKT | Prototype | `src/qp/kkt.cpp` |
 | MIQP branch-and-cut | Prototype | Uses continuous QP relaxations at nodes |
 
-**CI suite snapshot (as of Phase 0 merge):** Netlib runner uses the 7 instances listed in `CMakeLists.txt`; MIPLIB runner uses stein9, stein15, flugpl. GPU-named tests exercise the CPU fallback path when CUDA is absent.
+**CI suite snapshot (as of Phase 0–2):** Netlib runner uses the 7 instances listed in `CMakeLists.txt`; MIPLIB runner uses stein9, stein15, flugpl. GPU-named tests exercise the CPU fallback path when CUDA is absent. Phase 2 adds `regression_simplex_scale200_pricing` and `regression_backend_actually_used`.
 
 ---
 
 ## 2. Explicit limitations
 
 - GPU performance numbers previously published (including any "29,xxx×" speedup) are **quarantined** under `evidence/benchmarks/_unverified/` and must not be cited until re-run on real hardware after the simplex baseline is profiled and fixed.
+
+- Dense primal reference simplex workspace is capped (`maximum_expanded_elements`); generated
+  scale_2000 (~1050 rows after expansion) still returns ResourceLimit. Pricing path is fixed
+  for the ~200-row regime (scale_200 regression). Full sparse industrial scale is out of Phase 2.
 - Simplex scaling past moderate sizes has a dense reference dimension limit (see Phase 2 of the remediation plan).
 - Full Netlib (~90) and MIPLIB benchmark-tag sets are not yet wired; only the small CI subsets above are claimed as Verified.
 

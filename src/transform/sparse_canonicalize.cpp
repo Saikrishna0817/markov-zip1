@@ -92,8 +92,9 @@ std::vector<double> SparseCanonicalModel::multiply_transpose(const std::vector<d
 }
 
 CanonicalModel SparseCanonicalModel::to_dense() const {
-    constexpr std::size_t max_dense_rows = 2048;
-    constexpr std::size_t max_dense_cols = 8192;
+    // Keep in sync with reference simplex dense workspace limits (Phase 2).
+    constexpr std::size_t max_dense_rows = 4096;
+    constexpr std::size_t max_dense_cols = 16384;
     if (matrix.rows > max_dense_rows || matrix.columns > max_dense_cols) {
         throw std::length_error("sparse model exceeds dense dimension limits");
     }
@@ -160,7 +161,6 @@ SparseCanonicalModel sparse_canonicalize(const model::Model& in, bool relax_inte
     }
     out.record.structural_variables = structural;
 
-    // Transpose input matrix into row-oriented adjacency for efficient row-wise canonicalization
     struct RowEntry {
         std::size_t col;
         double val;
@@ -203,7 +203,6 @@ SparseCanonicalModel sparse_canonicalize(const model::Model& in, bool relax_inte
         out.rhs.push_back(b);
     };
 
-    // 1. Structural constraints
     for (std::size_t i = 0; i < in.matrix.row_count; ++i) {
         const auto lo = in.row_lower[i];
         const auto up = in.row_upper[i];
@@ -219,7 +218,6 @@ SparseCanonicalModel sparse_canonicalize(const model::Model& in, bool relax_inte
         }
     }
 
-    // 2. Box bound constraints on structural variables
     for (std::size_t j = 0; j < in.matrix.column_count; ++j) {
         const auto lo = in.variable_lower[j];
         const auto up = in.variable_upper[j];
@@ -234,7 +232,6 @@ SparseCanonicalModel sparse_canonicalize(const model::Model& in, bool relax_inte
         }
     }
 
-    // 3. Objective vector and constant offset
     const std::size_t total_cols = next_col;
     out.objective.assign(total_cols, 0.0);
     long double obj_shift = 0.0;
@@ -249,7 +246,6 @@ SparseCanonicalModel sparse_canonicalize(const model::Model& in, bool relax_inte
     out.objective_offset =
         out.record.objective_sign * static_cast<double>(obj_shift) + in.objective_offset;
 
-    // 4. Assemble SparseCsc matrix from triplets
     const std::size_t total_rows = out.rhs.size();
     out.matrix.rows = total_rows;
     out.matrix.columns = total_cols;
@@ -263,7 +259,6 @@ SparseCanonicalModel sparse_canonicalize(const model::Model& in, bool relax_inte
     std::size_t current_offset = 0;
     for (std::size_t j = 0; j < total_cols; ++j) {
         out.matrix.column_offsets[j] = current_offset;
-        // Combine entries with identical row index in the same column
         auto& entries = col_entries[j];
         if (entries.size() > 1) {
             std::sort(entries.begin(), entries.end(),

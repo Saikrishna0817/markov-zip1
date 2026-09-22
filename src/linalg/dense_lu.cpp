@@ -5,7 +5,7 @@
 #include <stdexcept>
 namespace markov_cero::linalg {
 namespace {
-constexpr std::size_t maximum_dense_elements = 4U * 1024U * 1024U;
+constexpr std::size_t maximum_dense_elements = 16U * 1024U * 1024U;
 std::size_t checked_product(std::size_t a, std::size_t b) {
     if (a != 0U && b > std::numeric_limits<std::size_t>::max() / a)
         throw std::length_error("dense matrix size overflow");

@@ -57,6 +57,9 @@ struct PdlpResult {
     double kernel_ms{0.0};
     double d2h_ms{0.0};
     double total_ms{0.0};
+    // Requested backend may differ from the path that actually ran (e.g. no CUDA).
+    // Values: "cpu", "cuda", "cpu_fallback".
+    std::string backend_actually_used{"cpu"};
 };
 
 // Solve an LP using matrix-free Primal-Dual Hybrid Gradient.
