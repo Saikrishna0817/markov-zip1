@@ -5,7 +5,7 @@
 #include <stdexcept>
 namespace markov_cero::linalg {
 namespace {
-constexpr std::size_t maximum_dense_elements = 4U * 1024U * 1024U;
+constexpr std::size_t maximum_dense_elements = 16U * 1024U * 1024U;
 std::size_t checked_product(std::size_t a, std::size_t b) {
     if (a != 0U && b > std::numeric_limits<std::size_t>::max() / a)
         throw std::length_error("dense matrix size overflow");
@@ -39,156 +39,80 @@ void DenseMatrix::validate() const {
     if (values.size() != checked_product(rows, columns))
         throw std::invalid_argument("dense matrix dimension mismatch");
     for (double v : values)
-        if (!std::isfinite(v))
-            throw std::invalid_argument("dense matrix contains non-finite value");
+        finite(v, "dense matrix entry non-finite");
 }
-DenseLu DenseLu::factorize(const DenseMatrix& a, double tol) {
+DenseLu DenseLu::factorize(const DenseMatrix& a, double pivot_tolerance) {
     a.validate();
     if (a.rows != a.columns)
-        throw std::invalid_argument("dense LU requires square matrix");
-    if (!std::isfinite(tol) || tol < 0)
-        throw std::invalid_argument("invalid singular tolerance");
-    DenseLu f;
-    f.dimension_ = a.rows;
-    f.lu_ = a.values;
-    f.pivots_.resize(a.rows);
-    for (double v : a.values)
-        f.diagnostics_.maximum_original_entry =
-            std::max(f.diagnostics_.maximum_original_entry, std::abs(v));
-    f.diagnostics_.minimum_absolute_pivot = std::numeric_limits<double>::infinity();
-    for (std::size_t k = 0; k < a.rows; ++k) {
-        std::size_t p = k;
-        double best = std::abs(f.lu_[k * a.rows + k]);
-        for (std::size_t i = k + 1; i < a.rows; ++i) {
-            const double q = std::abs(f.lu_[i * a.rows + k]);
-            if (q > best) {
-                best = q;
-                p = i;
+        throw std::invalid_argument("LU requires square matrix");
+    DenseLu lu;
+    lu.n = a.rows;
+    lu.lu = a.values;
+    lu.pivots.resize(lu.n);
+    for (std::size_t i = 0; i < lu.n; ++i)
+        lu.pivots[i] = i;
+    for (std::size_t k = 0; k < lu.n; ++k) {
+        std::size_t piv = k;
+        double best = std::abs(lu.lu[k * lu.n + k]);
+        for (std::size_t i = k + 1; i < lu.n; ++i) {
+            const double cand = std::abs(lu.lu[i * lu.n + k]);
+            if (cand > best) {
+                best = cand;
+                piv = i;
             }
         }
-        const double scale = std::max(1.0, f.diagnostics_.maximum_original_entry);
-        if (best <= tol * scale)
-            throw std::runtime_error("singular or near-singular matrix");
-        f.pivots_[k] = p;
-        if (p != k)
-            for (std::size_t j = 0; j < a.rows; ++j)
-                std::swap(f.lu_[k * a.rows + j], f.lu_[p * a.rows + j]);
-        const double pivot = f.lu_[k * a.rows + k];
-        f.diagnostics_.minimum_absolute_pivot =
-            std::min(f.diagnostics_.minimum_absolute_pivot, std::abs(pivot));
-        f.diagnostics_.maximum_absolute_pivot =
-            std::max(f.diagnostics_.maximum_absolute_pivot, std::abs(pivot));
-        for (std::size_t i = k + 1; i < a.rows; ++i) {
-            f.lu_[i * a.rows + k] /= pivot;
-            finite(f.lu_[i * a.rows + k], "non-finite LU multiplier");
-            const double m = f.lu_[i * a.rows + k];
-            for (std::size_t j = k + 1; j < a.rows; ++j) {
-                f.lu_[i * a.rows + j] -= m * f.lu_[k * a.rows + j];
-                finite(f.lu_[i * a.rows + j], "non-finite LU update");
-            }
+        if (best <= pivot_tolerance)
+            throw std::runtime_error("singular dense basis");
+        if (piv != k) {
+            for (std::size_t j = 0; j < lu.n; ++j)
+                std::swap(lu.lu[k * lu.n + j], lu.lu[piv * lu.n + j]);
+            std::swap(lu.pivots[k], lu.pivots[piv]);
+        }
+        const double akk = lu.lu[k * lu.n + k];
+        for (std::size_t i = k + 1; i < lu.n; ++i) {
+            lu.lu[i * lu.n + k] /= akk;
+            const double lik = lu.lu[i * lu.n + k];
+            for (std::size_t j = k + 1; j < lu.n; ++j)
+                lu.lu[i * lu.n + j] -= lik * lu.lu[k * lu.n + j];
         }
     }
-    if (a.rows == 0) {
-        f.diagnostics_.minimum_absolute_pivot = 0;
-    }
-    f.diagnostics_.pivot_ratio =
-        f.diagnostics_.maximum_absolute_pivot == 0
-            ? 0
-            : f.diagnostics_.minimum_absolute_pivot / f.diagnostics_.maximum_absolute_pivot;
-    return f;
+    return lu;
 }
 std::vector<double> DenseLu::solve(const std::vector<double>& b) const {
-    if (b.size() != dimension_)
-        throw std::invalid_argument("rhs dimension mismatch");
-    std::vector<double> x = b;
-    for (double v : x)
-        finite(v, "non-finite rhs");
-    for (std::size_t k = 0; k < dimension_; ++k)
-        if (pivots_[k] != k)
-            std::swap(x[k], x[pivots_[k]]);
-    for (std::size_t k = 0; k < dimension_; ++k)
-        for (std::size_t i = k + 1; i < dimension_; ++i) {
-            x[i] -= lu_[i * dimension_ + k] * x[k];
-            finite(x[i], "non-finite forward solve");
-        }
-    for (std::size_t k = dimension_; k-- > 0;) {
-        for (std::size_t j = k + 1; j < dimension_; ++j) {
-            x[k] -= lu_[k * dimension_ + j] * x[j];
-            finite(x[k], "non-finite back solve");
-        }
-        x[k] /= lu_[k * dimension_ + k];
-        finite(x[k], "non-finite solution");
+    if (b.size() != n)
+        throw std::invalid_argument("RHS dimension mismatch");
+    std::vector<double> x(n);
+    for (std::size_t i = 0; i < n; ++i)
+        x[i] = b[pivots[i]];
+    for (std::size_t i = 0; i < n; ++i) {
+        for (std::size_t j = 0; j < i; ++j)
+            x[i] -= lu[i * n + j] * x[j];
+    }
+    for (std::size_t i = n; i-- > 0;) {
+        for (std::size_t j = i + 1; j < n; ++j)
+            x[i] -= lu[i * n + j] * x[j];
+        x[i] /= lu[i * n + i];
+        finite(x[i], "non-finite dense solve");
     }
     return x;
 }
 std::vector<double> DenseLu::solve_transpose(const std::vector<double>& b) const {
-    if (b.size() != dimension_)
-        throw std::invalid_argument("rhs dimension mismatch");
-    std::vector<double> x = b;
-    for (double v : x)
-        finite(v, "non-finite rhs");
-    for (std::size_t k = 0; k < dimension_; ++k) {
-        for (std::size_t i = 0; i < k; ++i) {
-            x[k] -= lu_[i * dimension_ + k] * x[i];
-            finite(x[k], "non-finite transpose solve");
-        }
-        x[k] /= lu_[k * dimension_ + k];
-        finite(x[k], "non-finite transpose solution");
+    if (b.size() != n)
+        throw std::invalid_argument("RHS dimension mismatch");
+    std::vector<double> y = b;
+    for (std::size_t i = 0; i < n; ++i) {
+        for (std::size_t j = 0; j < i; ++j)
+            y[i] -= lu[j * n + i] * y[j];
+        y[i] /= lu[i * n + i];
     }
-    for (std::size_t k = dimension_; k-- > 0;)
-        for (std::size_t i = k + 1; i < dimension_; ++i) {
-            x[k] -= lu_[i * dimension_ + k] * x[i];
-            finite(x[k], "non-finite transpose solve");
-        }
-    for (std::size_t k = dimension_; k-- > 0;)
-        if (pivots_[k] != k)
-            std::swap(x[k], x[pivots_[k]]);
+    for (std::size_t i = n; i-- > 0;) {
+        for (std::size_t j = i + 1; j < n; ++j)
+            y[i] -= lu[j * n + i] * y[j];
+        finite(y[i], "non-finite dense transpose solve");
+    }
+    std::vector<double> x(n);
+    for (std::size_t i = 0; i < n; ++i)
+        x[pivots[i]] = y[i];
     return x;
-}
-std::vector<double> multiply(const DenseMatrix& a, const std::vector<double>& x) {
-    a.validate();
-    if (x.size() != a.columns)
-        throw std::invalid_argument("multiply dimension mismatch");
-    for (double v : x)
-        finite(v, "non-finite multiply operand");
-    std::vector<double> y(a.rows);
-    for (std::size_t i = 0; i < a.rows; ++i) {
-        long double s = 0;
-        for (std::size_t j = 0; j < a.columns; ++j)
-            s += static_cast<long double>(a(i, j)) * x[j];
-        y[i] = static_cast<double>(s);
-        finite(y[i], "non-finite matrix product");
-    }
-    return y;
-}
-std::vector<double> multiply_transpose(const DenseMatrix& a, const std::vector<double>& x) {
-    a.validate();
-    if (x.size() != a.rows)
-        throw std::invalid_argument("transpose multiply dimension mismatch");
-    for (double v : x)
-        finite(v, "non-finite multiply operand");
-    std::vector<double> y(a.columns);
-    for (std::size_t j = 0; j < a.columns; ++j) {
-        long double s = 0;
-        for (std::size_t i = 0; i < a.rows; ++i)
-            s += static_cast<long double>(a(i, j)) * x[i];
-        y[j] = static_cast<double>(s);
-        finite(y[j], "non-finite matrix product");
-    }
-    return y;
-}
-double infinity_residual(const DenseMatrix& a, const std::vector<double>& x,
-                         const std::vector<double>& b, bool t) {
-    auto y = t ? multiply_transpose(a, x) : multiply(a, x);
-    if (y.size() != b.size())
-        throw std::invalid_argument("residual dimension mismatch");
-    double r = 0;
-    for (std::size_t i = 0; i < y.size(); ++i) {
-        finite(b[i], "non-finite residual rhs");
-        const double d = std::abs(y[i] - b[i]);
-        finite(d, "non-finite residual");
-        r = std::max(r, d);
-    }
-    return r;
 }
 } // namespace markov_cero::linalg
