@@ -57,25 +57,12 @@ add_library(markov_cero_core STATIC
   src/qp/kkt.cpp
   src/qp/admm_solver.cpp
   src/qp/verifier.cpp
-  gpu/src/buffer.cpp
-  gpu/src/csr.cpp
-  gpu/src/device.cpp
-  gpu/src/pdhg_step.cpp
-  gpu/src/reduce.cpp
-  gpu/src/spmv.cpp
-  gpu/src/vector_ops.cpp
 )
-target_include_directories(markov_cero_core PUBLIC include gpu/include)
+target_include_directories(markov_cero_core PUBLIC include)
 target_compile_features(markov_cero_core PUBLIC cxx_std_20)
 target_link_libraries(markov_cero_core PUBLIC Threads::Threads)
 if(MARKOV_CERO_ENABLE_CUDA)
-  target_compile_definitions(markov_cero_core PUBLIC MARKOV_CERO_HAS_CUDA=1)
-  target_sources(markov_cero_core PRIVATE
-    gpu/kernels/pdhg_step.cu
-    gpu/kernels/reduce.cu
-    gpu/kernels/spmv.cu
-    gpu/kernels/vector_ops.cu
-  )
+  message(WARNING "MARKOV_CERO_ENABLE_CUDA=ON but GPU sources are deferred; building CPU-only.")
 endif()
 if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
   target_compile_options(markov_cero_core PRIVATE -Wall -Wextra -Wpedantic)
@@ -145,22 +132,6 @@ add_executable(pdlp_test tests/pdlp_test.cpp)
 target_link_libraries(pdlp_test PRIVATE markov_cero_core)
 add_executable(parallel_tree_search_test tests/parallel_tree_search_test.cpp)
 target_link_libraries(parallel_tree_search_test PRIVATE markov_cero_core)
-add_executable(gpu_buffer_test gpu/tests/gpu_buffer_test.cpp)
-target_link_libraries(gpu_buffer_test PRIVATE markov_cero_core)
-add_executable(equivalence_test gpu/tests/equivalence_test.cpp)
-target_link_libraries(equivalence_test PRIVATE markov_cero_core)
-add_executable(gpu_reduction_test gpu/tests/reduction_test.cpp)
-target_link_libraries(gpu_reduction_test PRIVATE markov_cero_core)
-add_executable(gpu_pdhg_step_test gpu/tests/pdhg_step_test.cpp)
-target_link_libraries(gpu_pdhg_step_test PRIVATE markov_cero_core)
-add_executable(gpu_pdhg_restart_test gpu/tests/pdhg_restart_test.cpp)
-target_link_libraries(gpu_pdhg_restart_test PRIVATE markov_cero_core)
-add_executable(gpu_pdhg_adaptive_test gpu/tests/pdhg_adaptive_test.cpp)
-target_link_libraries(gpu_pdhg_adaptive_test PRIVATE markov_cero_core)
-add_executable(gpu_pdhg_kkt_test gpu/tests/pdhg_kkt_test.cpp)
-target_link_libraries(gpu_pdhg_kkt_test PRIVATE markov_cero_core)
-add_executable(gpu_pdhg_timing_test gpu/tests/pdhg_timing_test.cpp)
-target_link_libraries(gpu_pdhg_timing_test PRIVATE markov_cero_core)
 add_executable(qp_test tests/qp_test.cpp)
 target_link_libraries(qp_test PRIVATE markov_cero_core)
 add_test(NAME build_info COMMAND build_info_test)
@@ -185,14 +156,6 @@ add_test(NAME milp_cuts COMMAND milp_cuts_test)
 add_test(NAME strong_branching COMMAND strong_branching_test)
 add_test(NAME pdlp COMMAND pdlp_test)
 add_test(NAME parallel_tree_search COMMAND parallel_tree_search_test)
-add_test(NAME gpu_buffer COMMAND gpu_buffer_test)
-add_test(NAME equivalence COMMAND equivalence_test)
-add_test(NAME gpu_reduction COMMAND gpu_reduction_test)
-add_test(NAME gpu_pdhg_step COMMAND gpu_pdhg_step_test)
-add_test(NAME gpu_pdhg_restart COMMAND gpu_pdhg_restart_test)
-add_test(NAME gpu_pdhg_adaptive COMMAND gpu_pdhg_adaptive_test)
-add_test(NAME gpu_pdhg_kkt COMMAND gpu_pdhg_kkt_test)
-add_test(NAME gpu_pdhg_timing COMMAND gpu_pdhg_timing_test)
 add_test(NAME qp COMMAND qp_test)
 add_test(NAME json_records COMMAND python3 -c "import json, glob; [json.load(open(f)) for f in glob.glob('**/*.json', recursive=True) if not f.startswith('_')]")
 add_test(NAME sovereignty_guard
@@ -212,28 +175,16 @@ add_test(NAME cli_refinery_limited COMMAND markov-cero-solve ${CMAKE_SOURCE_DIR}
 set_tests_properties(cli_refinery_limited PROPERTIES WILL_FAIL TRUE)
 add_test(NAME netlib_benchmarks COMMAND ${CMAKE_COMMAND} -E env python3 ${CMAKE_SOURCE_DIR}/scripts/run_netlib.py --solver $<TARGET_FILE:markov-cero-solve> --instances afiro adlittle sc50a sc50b sc105 share2b recipe)
 add_test(NAME miplib_benchmarks COMMAND ${CMAKE_COMMAND} -E env python3 ${CMAKE_SOURCE_DIR}/scripts/run_miplib.py --solver $<TARGET_FILE:markov-cero-solve> --instances stein9 stein15 flugpl)
-add_test(NAME gpu_benchmarks
-  COMMAND ${CMAKE_COMMAND} -E env python3 ${CMAKE_SOURCE_DIR}/benchmarks/runners/run_gpu.py
-    --solver $<TARGET_FILE:markov-cero-solve>
-    --instances afiro blend sc50a sc50b
-    --output ${CMAKE_BINARY_DIR}/reports/gpu_benchmark.csv)
-add_test(NAME gpu_profiling
-  COMMAND ${CMAKE_COMMAND} -E env python3 ${CMAKE_SOURCE_DIR}/benchmarks/runners/profile_gpu.py
-    --solver $<TARGET_FILE:markov-cero-solve>
-    --model ${CMAKE_SOURCE_DIR}/examples/blend.mps
-    --output-json ${CMAKE_BINARY_DIR}/reports/profile_summary.json
-    --output-md ${CMAKE_BINARY_DIR}/reports/profile_analysis.md)
 set_tests_properties(
   build_info model_verifier mps_parser mps_fuzz_smoke model_properties
   dense_lu primal_simplex primal_simplex_properties dual_simplex
   warm_start_properties sparse_basis sparse_update_properties audit_regressions
   sparse_canonicalize presolve ruiz_scaling milp milp_heuristics milp_cuts
-  strong_branching pdlp parallel_tree_search gpu_buffer equivalence gpu_reduction
-  gpu_pdhg_step gpu_pdhg_restart gpu_pdhg_adaptive gpu_pdhg_kkt gpu_pdhg_timing
+  strong_branching pdlp parallel_tree_search
   qp json_records sovereignty_guard
   cli_blend_optimal cli_refinery_feasible cli_refinery_infeasible
   cli_refinery_malformed cli_refinery_limited
-  netlib_benchmarks gpu_benchmarks gpu_profiling
+  netlib_benchmarks
   PROPERTIES
     TIMEOUT 60
     WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
