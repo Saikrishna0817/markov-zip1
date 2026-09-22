@@ -1,0 +1,36 @@
+{
+  "problem": {
+    "rows": 525,
+    "cols": 980,
+    "nonzeros": 2884,
+    "iterations": 160
+  },
+  "timing_ms": {
+    "h2d_ms": 0.04,
+    "kernel_ms": 1.672,
+    "d2h_ms": 0.001,
+    "total_ms": 1.79,
+    "kernel_ratio_pct": 93.4
+  },
+  "memory_traffic": {
+    "h2d_kb": 156.59,
+    "d2h_kb": 11.76,
+    "in_loop_transfers": 0,
+    "device_resident": true
+  },
+  "performance": {
+    "total_gflops": 0.0027,
+    "effective_gflops": 1.59,
+    "effective_bandwidth_gbs": 18.05,
+    "arithmetic_intensity_flop_per_byte": 0.0879
+  },
+  "kernel_shares_pct": {
+    "spmv_forward_backward": 69.6,
+    "primal_step_projection": 17.7,
+    "dual_step_projection": 12.7
+  },
+  "occupancy": {
+    "spmv_warp_per_row": "100% (256 threads/block, 24 regs/thread, 0 B smem)",
+    "elementwise_grid_stride": "100% (256 threads/block, 22 regs/thread, 0 B smem)"
+  }
+}
