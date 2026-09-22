@@ -1,145 +1,108 @@
 # Status & Capability Matrix — markov-cero v0.5.2
 
-Single source of truth for solver status, capabilities, CLI options, and prototype boundaries.
+Single source of truth for solver status, capabilities, CLI options, and boundaries.
+
+Status vocabulary (remediation plan):
+
+| Tier | Meaning |
+|------|---------|
+| **Prototype** | Code exists, compiles, has at least one unit test |
+| **Verified (N instances)** | Passes correctness checks on a named, counted benchmark set |
+| **Hardware-verified** | Reproducible artifact generated on real target hardware with hardware spec recorded |
+
+No performance number or "passed" claim appears here unless produced by a command that can be re-run.
 
 ---
 
-## 1. Implemented Capabilities
+## 1. Capability matrix
 
-| Capability | Status | Implementation / Evidence |
+| Capability | Status | Evidence / notes |
 |---|---|---|
-| Free-format MPS parser | Implemented | `src/io/mps.cpp`, fuzz targets, edge tests |
-| Immutable model (CSC) | Implemented | `src/model/model.cpp` |
-| Sparse canonical model | Implemented | `src/transform/sparse_canonicalize.cpp` |
-| Primal revised simplex | Implemented | `src/lp/reference/revised_simplex.cpp`, Netlib pass |
-| Dual warm simplex | Implemented | `src/lp/dual/dual_simplex.cpp`, basis serialization |
-| Sparse basis LU + Eta updates | Implemented | `src/linalg/sparse_basis.cpp`, property tests |
-| Matrix-free PDLP (CPU) | Implemented | `src/lp/first_order/pdlp.cpp`, `tests/pdlp_test.cpp` |
-| Sovereign MILP Branch-and-Cut | Implemented | `src/milp/milp_solver.cpp`, 3/3 MIPLIB pass |
-| Parallel tree search | Implemented | `src/milp/parallel_tree_search.cpp`, C++20 jthread |
-| Gomory Mixed-Integer (GMI) cuts | Implemented | `src/milp/gomory.cpp` with slack substitution |
-| Mixed-Integer Rounding (MIR) cuts | Implemented | `src/milp/mir.cpp`, cosine filtering |
-| Strong branching | Implemented | `src/milp/strong_branching.cpp`, pseudo-costs |
-| Primal heuristics & pump | Implemented | `src/milp/heuristics.cpp` with cycle perturbation |
-| Reversible presolve / postsolve | Implemented | `src/presolve/presolve.cpp`, `presolve_test.cpp` |
-| Ruiz matrix scaling | Implemented | `src/scale/ruiz_scaling.cpp`, `ruiz_scaling_test.cpp` |
-| Independent canonical verifier | Implemented | `src/verify/reference_lp_verifier.cpp` |
-| Original primal verifier | Implemented | `src/verify/primal_verifier.cpp` |
-| Solve CLI & JSON output | Implemented | `apps/markov_cero_solve.cpp` |
-| Refinery qualification demo | Implemented | `examples/refinery/`, `run-qualification-demo.sh` |
-| GPU PDLP acceleration | Implemented | `gpu/`, CUDA SpMV, vector ops, reductions, T-5.01–T-5.16 |
-| Convex QP (OSQP ADMM) | Implemented | `src/qp/admm_solver.cpp`, `src/qp/kkt.cpp`, `qp_test.cpp` |
-| Sparse LDLᵀ KKT Factorization | Implemented | `src/qp/kkt.cpp`, Davis (2005) Algorithm 849 |
-| Convexity Verification | Implemented | `src/qp/model.cpp`, LDLᵀ diagonal pivot check |
-| Independent QP Verifier | Implemented | `src/qp/verifier.cpp`, KKT residuals & gap |
-| MIQP Branch-and-Cut | Implemented | `src/milp/node_lp.cpp`, `src/milp/heuristics.cpp` |
-| MPS QUADOBJ & QMATRIX | Implemented | `src/io/mps.cpp`, `tests/mps_parser_test.cpp` |
+| Free-format MPS parser | Verified (unit + fuzz smoke) | `src/io/mps.cpp`, `tests/mps_parser_test.cpp`, fuzz targets |
+| Immutable model (CSC) | Prototype | `src/model/model.cpp`, model tests |
+| Sparse canonical model | Prototype | `src/transform/sparse_canonicalize.cpp` |
+| Primal revised simplex | Verified (7 Netlib instances in CI suite) | `src/lp/reference/revised_simplex.cpp`; `ctest -R netlib` |
+| Dual revised simplex | Prototype | `src/lp/dual/dual_simplex.cpp`, dual/warm-start tests |
+| Sparse basis LU + Eta | Prototype | `src/linalg/sparse_basis.cpp`, property tests |
+| Matrix-free PDLP (CPU) | Prototype | `src/lp/first_order/pdlp.cpp`, `tests/pdlp_test.cpp` |
+| MILP branch-and-cut | Verified (3 MIPLIB instances in CI suite) | `src/milp/milp_solver.cpp`; `ctest -R miplib` (stein9, stein15, flugpl) |
+| Parallel tree search | Prototype | `src/milp/parallel_tree_search.cpp` |
+| GMI cuts | Prototype | `src/milp/gomory.cpp` |
+| MIR cuts | Prototype | `src/milp/mir.cpp` |
+| Strong branching | Prototype | `src/milp/strong_branching.cpp` |
+| Primal heuristics / pump | Prototype | `src/milp/heuristics.cpp` |
+| Reversible presolve | Prototype | `src/presolve/presolve.cpp` |
+| Ruiz scaling | Prototype | `src/scale/ruiz_scaling.cpp` |
+| Independent verifiers | Prototype | `src/verify/` |
+| Solve CLI + JSON | Prototype | `apps/markov_cero_solve.cpp` |
+| Refinery demo models | Prototype | `examples/refinery/` |
+| GPU PDLP path | Prototype (CPU fallback exercised; hardware timing pending) | `gpu/`; unit tests under CPU fallback. Prior GPU timing files are under `evidence/benchmarks/_unverified/` |
+| Convex QP (ADMM) | Prototype | `src/qp/`, `tests/qp_test.cpp` |
+| Sparse LDLᵀ KKT | Prototype | `src/qp/kkt.cpp` |
+| MIQP branch-and-cut | Prototype | Uses continuous QP relaxations at nodes |
+
+**CI suite snapshot (as of Phase 0 merge):** Netlib runner uses the 7 instances listed in `CMakeLists.txt`; MIPLIB runner uses stein9, stein15, flugpl. GPU-named tests exercise the CPU fallback path when CUDA is absent.
 
 ---
 
-## 2. Explicit Prototype Limitations
+## 2. Explicit limitations
 
-JSON telemetry emitted by `markov-cero-solve` reports:
-```json
-"limitations":"Sovereign LP/MILP/QP/MIQP (CPU/GPU) engine."
-```
-
-### Problem Statement Capability Status (LP / MILP / QP / GPU)
-
-- **Continuous LP**: **Implemented** (Phase 1–2).
-- **MILP Branch-and-Cut**: **Implemented** (Phase 3–4).
-- **GPU Acceleration**: **Implemented** (Phase 5; see [docs/gpu.md](docs/gpu.md)).
-  Device-resident PDLP, custom CSR SpMV, adaptive restarts, four-part timing.
-- **Convex QP & MIQP**: **Implemented** (Phase 6).
-  OSQP ADMM operator splitting, quasi-definite KKT factorization, independent KKT verification.
-
-### Deferred Capabilities
-
-1. **Machine Learning-Assisted Branching**:
-   - **Status**: **Not implemented**.
-   - **Roadmap**: Scheduled for Phase 7.
-   - **Strategy**: Offline-trained gradient-boosted tree ranker on strong branching scores.
-
-2. **Dual Steepest-Edge Pricing Recurrence**:
-   - **Status**: Recomputes full tableau norm in $O(m^2)$ work per pivot.
-   - **Roadmap**: Scheduled for Phase 8 ($O(m)$ Forrest–Goldfarb recurrence).
+- GPU performance numbers previously published (including any "29,xxx×" speedup) are **quarantined** under `evidence/benchmarks/_unverified/` and must not be cited until re-run on real hardware after the simplex baseline is profiled and fixed.
+- Simplex scaling past moderate sizes has a dense reference dimension limit (see Phase 2 of the remediation plan).
+- Full Netlib (~90) and MIPLIB benchmark-tag sets are not yet wired; only the small CI subsets above are claimed as Verified.
 
 ---
 
-## 3. Roadmaps for Completed and Deferred Capabilities
+## 3. Deferred items
 
-### Phase 5: GPU Acceleration (Completed)
-- Detailed roadmap and design: [docs/gpu.md](docs/gpu.md).
-- Native C++20 matrix-free PDLP engine (`src/lp/first_order/pdlp.cpp`) serves as the CPU on-ramp.
-- Target: CUDA kernel SpMV (`A * x`, `A^T * y`), vector axpy, and dot-product reductions.
-- Primal revised simplex remains CPU-bound due to serial sparse basis updates.
-
-### Phase 6: Convex QP & MIQP (Completed)
-- Target: Convex quadratic programs ($\min \frac{1}{2} x^T P x + q^T x$ with $l \le A x \le u$).
-- Parser: Support for `QUADOBJ` and `QMATRIX` in MPS format (`src/io/mps.cpp`).
-- Linear Algebra: Timothy Davis sparse LDLᵀ decomposition for symmetric quasi-definite KKT.
-- Algorithm: ADMM operator splitting with over-relaxation and adaptive penalty parameter updates.
-- Verification: Independent KKT certificate verifier checking primal/dual residuals.
-- MIQP: Continuous QP relaxations at branch-and-cut tree nodes with quadratic energy heuristic.
-
-### Phase 7: Machine Learning-Assisted Branching (Roadmap)
-- Target: Fast variable selection approximating strong branching scores without LP resolves.
-- Features: Variable fractionality distance, row density, objective coefficients, pseudo-costs.
-- Architecture: Zero-dependency embedded ranker filtering top-$k$ candidates for strong branching.
+1. Machine-learning-assisted branching (roadmap Phase 7).
+2. Dual steepest-edge pricing recurrence (roadmap Phase 8).
+3. Hardware-verified GPU timing (requires real NVIDIA device).
 
 ---
 
-## 4. MPS Parser Dialect & Boundaries
+## 4. MPS dialect (parser)
 
-- **Supported Sections**: `NAME`, `ROWS`, `COLUMNS`, `RHS`, `RANGES`, `BOUNDS`, and `ENDATA`.
-- **Integer Markers**: Binary and general integers via `'INTORG'`, `'INTEND'`, `BV`, `UI`, `LI`.
-- **Security Boundaries**: Hostile input safeguards with bounded memory allocation, checked
-  arithmetic dimensions, and RFC 8259-compliant JSON telemetry.
+Supported sections: `NAME`, `ROWS`, `COLUMNS`, `RHS`, `RANGES`, `BOUNDS`, `ENDATA`, plus quadratic `QUADOBJ` / `QMATRIX`.
+Integer markers: `'INTORG'`, `'INTEND'`, `BV`, `UI`, `LI`.
+Hostile-input safeguards: bounded allocation, checked dimensions.
 
 ---
 
-## 5. CLI Interface (`markov-cero-solve --help`)
-
-The CLI interface matches `markov-cero-solve --help` exactly:
+## 5. CLI (`markov-cero-solve --help`)
 
 ```
 usage: markov-cero-solve MODEL.mps [options]
 options:
   --output result.json     Write output JSON to file
-  --engine primal|dual|pdlp|milp|parallel|qp|miqp|auto Select solver engine (default: auto)
+  --engine primal|dual|pdlp|milp|parallel|qp|miqp|auto
   --threads N              Worker threads for parallel tree search (default: 4)
-  --branching RULE         Branching rule: most_fractional|pseudo_cost|
-                           strong_branching|reliability (default: pseudo_cost)
-  --iteration-limit N      Maximum simplex iterations
-  --max-nodes N            Maximum branch-and-cut search nodes (default: 50000)
-  --time-limit SEC         Maximum search time limit in seconds (default: 60.0)
-  --cuts, --no-cuts        Enable or disable Gomory & MIR mixed-integer cuts (default: enabled)
-  --heuristics, --no-heuristics Enable or disable primal heuristics (default: enabled)
-  --warm-start FILE        Load warm-start basis from file (dual engine)
-  --save-basis FILE        Save optimal basis to file
-  --presolve, --no-presolve Enable or disable presolve reductions (default: enabled)
-  --scale, --no-scale       Enable or disable Ruiz matrix scaling (default: enabled)
-  --max-presolve-passes N   Maximum presolve passes (default: 5)
-  --ruiz-iterations N       Maximum Ruiz equilibration iterations (default: 10)
-  --tolerance TOL          Relative KKT tolerance for PDLP (default: 1e-4)
-  --backend cpu|gpu        PDLP execution backend (default: cpu)
-  --help, -h               Show this help
+  --branching RULE         most_fractional|pseudo_cost|strong_branching|reliability
+  --iteration-limit N
+  --max-nodes N            (default: 50000)
+  --time-limit SEC         (default: 60.0)
+  --cuts, --no-cuts
+  --heuristics, --no-heuristics
+  --warm-start FILE / --save-basis FILE
+  --presolve, --no-presolve / --max-presolve-passes N
+  --scale, --no-scale / --ruiz-iterations N
+  --tolerance TOL          PDLP relative KKT tolerance (default: 1e-4)
+  --backend cpu|gpu        PDLP backend (default: cpu)
+  --help, -h
 ```
 
 ---
 
-## 6. Exit Codes
+## 6. Exit codes
 
-`markov-cero-solve` returns deterministic exit codes:
-
-| Code | Status | Meaning |
-|---|---|---|
-| `0` | Optimal | Verified optimal solution found |
-| `1` | Infeasible | Certified infeasible by Farkas certificate / dual ray |
-| `2` | Unbounded | Certified unbounded by primal ray |
-| `3` | InvalidModel | Parse error, duplicate names, or malformed MPS |
-| `4` | InvalidOptions | Invalid command-line arguments or parameters |
-| `5` | ResourceLimit | Node limit or time limit exceeded |
-| `6` | IterationLimit | Iteration limit reached without optimality |
-| `7` | NumericalFailure | Singular basis, numerical drift, or precision loss |
-| `8` | Usage / I/O | File not found, unreadable path, or help requested |
+| Code | Meaning |
+|------|---------|
+| 0 | Optimal (verified) |
+| 1 | Infeasible |
+| 2 | Unbounded |
+| 3 | InvalidModel |
+| 4 | InvalidOptions |
+| 5 | ResourceLimit |
+| 6 | IterationLimit |
+| 7 | NumericalFailure |
+| 8 | Usage / I/O |

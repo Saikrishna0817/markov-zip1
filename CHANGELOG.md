@@ -8,14 +8,14 @@
 - Implemented Timothy A. Davis sparse LDLᵀ factorization (Algorithm 849, ACM TOMS 2005).
 - Implemented OSQP-style operator splitting ADMM solver with over-relaxation and adaptive rho.
 - Implemented analytical primal and dual infeasibility ray certificates (Banjac et al. 2019).
-- Implemented independent zero-trust KKT certificate verifier (residuals and complementarity).
+- Implemented independent KKT certificate verifier (residuals and complementarity).
 - Extended free-format MPS parser with QUADOBJ and QMATRIX quadratic objective sections.
 - Integrated continuous QP relaxations and quadratic energy heuristics into branch-and-cut MIQP.
 - Added CLI options: --engine qp and --engine miqp with automated quadratic model dispatch.
-- Expanded automated test suite to 43 CTest targets with 100% pass rate.
+- Expanded automated test suite to 43 CTest targets.
 
 ### Phase 5: GPU Acceleration & Scale Crossover (commits 4ca75b2..3c5f356)
-- Implemented sovereign CUDA first-order PDLP engine with device-resident iteration.
+- Implemented CUDA first-order PDLP engine with device-resident iteration.
 - Implemented DeviceBuffer RAII container and DeviceCsr sparse matrix formats.
 - Implemented custom warp-per-row CSR SpMV and transpose-SpMV kernels.
 - Implemented deterministic two-stage parallel reductions for vector norms and dot products.
@@ -24,11 +24,11 @@
 - Added relative KKT termination criteria at 1e-4, 1e-6, 1e-8 tolerances.
 - Added four-part timing telemetry (H2D, kernel, D2H, total) in JSON output.
 - Built run_gpu.py three-way comparison benchmark runner (Simplex vs CPU vs GPU).
-- Executed scale crossover study demonstrating up to 29,320x speedup over CPU simplex.
-- Conducted Nsight Systems profiling, occupancy, and roofline analysis.
+- Executed scale crossover study (historical claim; numbers quarantined under `evidence/benchmarks/_unverified/` pending real hardware re-run after simplex baseline fix).
+- Conducted Nsight Systems profiling notes (same quarantine).
 - Refactored CLI solve app into modular cli_options and json_output components (<= 500 LOC).
 
-### Phase 4: Sovereign Scaling & Audit Remediation (commit 23c8921)
+### Phase 4: Scaling & Audit Remediation (commit 23c8921)
 - Implemented matrix-free first-order PDLP/PDHG solver with diagonal preconditioning.
 - Implemented Mixed-Integer Rounding (MIR) cuts with cosine-similarity filtering.
 - Implemented Strong Branching lookahead evaluation and domain reduction.
@@ -36,14 +36,14 @@
 - Fixed Gomory cut generation by replacing slack discard with algebraic substitution.
 - Added feasibility pump cycle prevention with ambiguous variable perturbation.
 - Added CLI options: --engine pdlp|parallel, --threads, --branching rules.
-- Synchronized capability documentation across README and CAPABILITY-MATRIX.
+- Synchronized capability documentation across README and status matrix.
 
 ### Qualification Demo & Tooling Fixes (commit ec50874)
 - Built markov-cero-info binary target and integrated with verification scripts.
 - Updated qualification demo script and solver capability notice.
 
-### Phase 3: Sovereign MILP Branch-and-Cut (commit 7dc74cd)
-- Implemented sovereign branch-and-cut MILP solver with dual simplex node relaxations.
+### Phase 3: MILP Branch-and-Cut (commit 7dc74cd)
+- Implemented branch-and-cut MILP solver with dual simplex node relaxations.
 - Implemented node selection: best-bound, depth-first, and best-bound plunge.
 - Implemented reliability pseudo-cost branching with most-fractional fallback.
 - Implemented primal heuristics: simple rounding and feasibility pump.
