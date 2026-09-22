@@ -1,6 +1,4 @@
-// Regression: GPU-path JSON must report backend_actually_used, never pretend CUDA ran
-// when only the host fallback executed (Phase 2 remediation).
-#include "markov_cero/gpu/device.hpp"
+// Regression: GPU request must not claim CUDA when GPU code is not linked.
 #include "markov_cero/io/mps.hpp"
 #include "markov_cero/lp/first_order/pdlp.hpp"
 
@@ -38,19 +36,13 @@ ENDATA
     markov_cero::lp::first_order::PdlpOptions gpu_opts = cpu_opts;
     gpu_opts.backend = markov_cero::lp::first_order::Backend::gpu;
     auto gpu = markov_cero::lp::first_order::solve_pdlp(model, gpu_opts);
-    const bool cuda = markov_cero::gpu::is_gpu_available();
-    const std::string expected = cuda ? "cuda" : "cpu_fallback";
-    if (gpu.backend_actually_used != expected) {
+    if (gpu.backend_actually_used != "cpu_fallback") {
         std::cerr << "FAIL: GPU request reported backend_actually_used="
-                  << gpu.backend_actually_used << " expected " << expected << "\n";
-        return 1;
-    }
-    if (!cuda && gpu.backend_actually_used == "cuda") {
-        std::cerr << "FAIL: claimed cuda without device\n";
+                  << gpu.backend_actually_used << " expected cpu_fallback\n";
         return 1;
     }
     std::cout << "PASS: cpu=" << cpu.backend_actually_used
               << " gpu_request=" << gpu.backend_actually_used
-              << " is_gpu_available=" << (cuda ? "true" : "false") << "\n";
+              << " (GPU deferred; no CUDA in build)\n";
     return 0;
 }

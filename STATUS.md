@@ -36,18 +36,18 @@ No performance number or "passed" claim appears here unless produced by a comman
 | Independent verifiers | Prototype | `src/verify/` |
 | Solve CLI + JSON | Prototype | `apps/markov_cero_solve.cpp` |
 | Refinery demo models | Prototype | `examples/refinery/` |
-| GPU PDLP path | Prototype (CPU fallback exercised; hardware timing pending) | `gpu/`; unit tests under CPU fallback. Prior GPU timing files are under `evidence/benchmarks/_unverified/` |
+| GPU PDLP path | Deferred (not in build) | CUDA path removed from active tree; restore from git history when hardware work resumes. Prior speedup claims must not be cited. |
 | Convex QP (ADMM) | Prototype | `src/qp/`, `tests/qp_test.cpp` |
 | Sparse LDLᵀ KKT | Prototype | `src/qp/kkt.cpp` |
 | MIQP branch-and-cut | Prototype | Uses continuous QP relaxations at nodes |
 
-**CI suite snapshot (as of Phase 0–2):** Netlib runner uses the 7 instances listed in `CMakeLists.txt`; MIPLIB runner uses stein9, stein15, flugpl. GPU-named tests exercise the CPU fallback path when CUDA is absent. Phase 2 adds `regression_simplex_scale200_pricing` and `regression_backend_actually_used`.
+**CI suite snapshot:** Netlib runner uses the 7 instances in `CMakeLists.txt`; MIPLIB uses stein9, stein15, flugpl. GPU targets are not built. Phase 2 regressions: `regression_simplex_scale200_pricing`, `regression_backend_actually_used`.
 
 ---
 
 ## 2. Explicit limitations
 
-- GPU performance numbers previously published (including any "29,xxx×" speedup) are **quarantined** under `evidence/benchmarks/_unverified/` and must not be cited until re-run on real hardware after the simplex baseline is profiled and fixed.
+- GPU performance numbers previously published (including any "29,xxx×" speedup) are **not citeable**. They could not be verified as having been produced on real CUDA hardware with a trustworthy simplex baseline. Do not cite them in README, STATUS, CHANGELOG, or public claims. Replacement artifacts require a real NVIDIA device and a re-run (GPU work is deferred; code recoverable from git history).
 
 - Dense primal reference simplex workspace is capped (`maximum_expanded_elements`); generated
   scale_2000 (~1050 rows after expansion) still returns ResourceLimit. Pricing path is fixed
@@ -61,7 +61,7 @@ No performance number or "passed" claim appears here unless produced by a comman
 
 1. Machine-learning-assisted branching (roadmap Phase 7).
 2. Dual steepest-edge pricing recurrence (roadmap Phase 8).
-3. Hardware-verified GPU timing (requires real NVIDIA device).
+3. Hardware-verified GPU timing (deferred; requires real NVIDIA device; restore `gpu/` from git).
 
 ---
 
@@ -91,7 +91,7 @@ options:
   --presolve, --no-presolve / --max-presolve-passes N
   --scale, --no-scale / --ruiz-iterations N
   --tolerance TOL          PDLP relative KKT tolerance (default: 1e-4)
-  --backend cpu|gpu        PDLP backend (default: cpu)
+  --backend cpu|gpu        PDLP backend (default: cpu; gpu currently runs CPU with cpu_fallback)
   --help, -h
 ```
 
